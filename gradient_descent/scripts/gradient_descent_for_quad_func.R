@@ -2,7 +2,7 @@
 # LIBRARY
 ################################################################
 library(ggplot2)
-source("multiplot.R")
+source("scripts/multiplot.R")
 
 ################################################################
 # GENERATE DATA
