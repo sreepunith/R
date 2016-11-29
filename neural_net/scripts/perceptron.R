@@ -54,7 +54,7 @@ learning_func <- function(x, y, w, beta, iters) {
       w <- w + beta*e*x[idx,]
     }
   }
-  return (list(w = w))
+  return (w)
 }
 ################################################################################
 # MODELING
@@ -80,12 +80,10 @@ w <- vector(length = ncol(x))
 beta <- 0.1
 
 # Iteration
-iters <- 100
+iters <- 10
 
 # Learning iteration starts here
-results <- learning_func(x, y, w, beta, iters)
-w <- results$w
-results
+w <- learning_func(x, y, w, beta, iters)
 
 # Boundary line
 boundary_func <-function(x, w, w0) {
@@ -95,9 +93,65 @@ boundary_line <- data.frame(x = x[,2], y = boundary_func(x[,2], w))
 
 # Plot
 ggplot() +
-  geom_point(data = dt, mapping = aes(x = Freshwater, y = Marine, colour=Origin,
+  geom_point(data = dt, mapping = aes(x = Freshwater, y = Marine, colour = Origin,
                                       shape = Origin), size = 2.5) +
   geom_line(data = boundary_line, mapping = aes(x = x, y = y), 
             colour="black", linetype="dashed") +
   coord_cartesian(xlim = c(50, 200), ylim = c(200, 550))
 
+################################################################################
+# TRAINING REPORT
+################################################################################
+# Weight vector with initial weights
+w <- vector(length = ncol(x))
+
+# test() surveys on how many items are correctly classified
+# x: input matrix
+# y: output vector
+# w: weight vector
+test <- function(x, y, w) {
+  correctly_classified <- 0
+  for (idx in 1:nrow(x)) {
+    # Net input
+    u <- x[idx, ]%*%w
+    
+    # Predicted output
+    p <- ifelse(u >= 0, 1, 0)
+    
+    # Error
+    e <- y[idx] - p
+    
+    # Cumulate correctly classified item
+    correctly_classified <- ifelse(e == 0, 
+                                   correctly_classified + 1, 
+                                   correctly_classified)
+  }
+  return (as.numeric(correctly_classified))
+}
+# report() cumulates all possible iterations
+# x: input
+# y: output
+# w: inital weight
+# epochs: vector of the number of iterations
+report <- function(x, y, beta, epochs){
+  correctly_classified <- vector(length = 0)
+  for (idx in epochs) {
+    w <- vector(length = ncol(x))
+    w <- learning_func(x, y, w, beta, idx)
+    correctly_classified <- append(correctly_classified, test(x, y, w))
+  }
+  return (data.frame(epoch = epochs, corrected = correctly_classified))
+}
+
+
+# Vector of iterations
+epochs <- seq(0, 100, 5)
+
+report_detail <- report(x, y, beta, epochs)
+report_detail
+
+ggplot(data = report_detail, mapping = aes(x = epoch, y = corrected)) +
+  geom_point(shape = 15, colour = "red", size = 3) +
+  geom_path(colour = "red") +
+  coord_cartesian(xlim = c(0, 100), ylim = c(60, 100)) +
+  theme_bw()
