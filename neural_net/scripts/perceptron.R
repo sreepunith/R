@@ -3,6 +3,10 @@
 # make threshold neuron of McCulloch-Pitts learn.
 # In detail, read: section 2.5. of Neural Networks for Applied Sciences and 
 # Engineering
+################################################################################
+# CLEAN WORKING ENV
+################################################################################
+rm(list=ls())
 
 ################################################################################
 # LIBRARY
@@ -22,7 +26,8 @@ dt <- salmon
 # Plotting
 ggplot(data = dt, mapping = aes(x = Freshwater, y = Marine, colour=Origin, 
                                 shape = Origin)) +
-  geom_point(size = 2.5)
+  geom_point(size = 2.5) +
+  coord_cartesian(xlim = c(50, 200), ylim = c(200, 550))
 
 ################################################################################
 # LEARNING ALGORITHM
@@ -32,9 +37,10 @@ ggplot(data = dt, mapping = aes(x = Freshwater, y = Marine, colour=Origin,
 # y : ouput vector
 # w : weight vector
 # beta : learning rate
+# iters : number of iterations
 learning_func <- function(x, y, w, beta, iters) {
-  for (idx in 1:iters) {
-    for (idx in 1:100) {
+  for (i in 1:iters) {
+    for (idx in 1:nrow(x)) {
       # Net input
       u <- x[idx, ]%*%w
       
@@ -42,54 +48,54 @@ learning_func <- function(x, y, w, beta, iters) {
       p <- ifelse(u >= 0, 1, 0)
       
       # Error
-      E <- y[idx] - p
+      e <- y[idx] - p
       
       # Adjust weights
-      w <- w + beta*x[idx, ]*E
-      print(w)
+      w <- w + beta*e*x[idx,]
     }
   }
-  return (w)
+  return (list(w = w))
 }
 ################################################################################
 # MODELING
 ################################################################################
 # Input matrix x
-dt["bias"] <- rep(x = 1, times = length(dt[,1]))
-
-x <- as.matrix(dt[,c(2,3, 5)]) 
+dt <- dt[sample(nrow(dt)),]
+x <- as.matrix(dt[, 2:3]) 
+x <- matrix(x, ncol = ncol(x), dimnames = NULL)
+x <- cbind(x, rep(1, nrow(x)))
+x <- x[, c(3, 1, 2)]
 
 # Actual output
 y <- dt$Origin
 y <- as.character(y)
-y[which(y == "Canadian")] <- 0
-y[which(y == "Alaskan")] <- 1
+y[which(y == "Canadian")] <- 1
+y[which(y == "Alaskan")] <- 0
 y <- as.numeric(y)
 
 # Weight vector with initial weights
-w <- matrix(data = c(-10, 0, 1), ncol = 1, nrow = 3)
+w <- vector(length = ncol(x))
 
 # Learning rate beta
 beta <- 0.1
 
 # Iteration
-iters <- 100
+iters <- 50
 
 # Learning iteration starts here
-w <- learning_func(x, y, w, beta, iters)
-w
+results <- learning_func(x, y, w, beta, iters)
+w <- results$w
 
-# Separate line
-boundary_func <-function(x1, w) {
-  return (-(w[1,1] * x1 - w[3,1]) / w[2,1])
+# Boundary line
+boundary_func <-function(x, w, w0) {
+  return ((-w[2]*x - w[1]) / w[3])
 }
-boundary_line <- data.frame(x = x[,1], y = boundary_func(x[,1], w))
+boundary_line <- data.frame(x = x[,2], y = boundary_func(x[,2], w))
 
 # Plot
 ggplot() +
   geom_point(data = dt, mapping = aes(x = Freshwater, y = Marine, colour=Origin,
                                       shape = Origin), size = 2.5) +
-  geom_line(data = boundary_line, mapping = aes(x = x, y = y))
-
-
+  geom_line(data = boundary_line, mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(50, 200), ylim = c(200, 550))
 
