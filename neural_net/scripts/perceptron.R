@@ -13,7 +13,7 @@ rm(list=ls())
 ################################################################################
 library(rrcov) #salmon data
 library(ggplot2) #plot
-
+library(animation) #gif
 ################################################################################
 # DATA
 ################################################################################
@@ -86,10 +86,10 @@ iters <- 10
 w <- learning_func(x, y, w, beta, iters)
 
 # Boundary line
-boundary_func <-function(x, w, w0) {
-  return ((-w[2]*x - w[1]) / w[3])
+boundary_func <-function(x, w) {
+  return (as.numeric((-w[2]*x - w[1]) / w[3]))
 }
-boundary_line <- data.frame(x = x[,2], y = boundary_func(x[,2], w))
+boundary_line <- data.frame("x" = x[,2], "y" = boundary_func(x[,2], w))
 
 # Plot
 ggplot() +
@@ -97,7 +97,9 @@ ggplot() +
                                       shape = Origin), size = 2.5) +
   geom_line(data = boundary_line, mapping = aes(x = x, y = y), 
             colour="black", linetype="dashed") +
-  coord_cartesian(xlim = c(50, 200), ylim = c(200, 550))
+  coord_cartesian(xlim = c(50, 200), ylim = c(200, 550)) +
+  labs(title = "The growth-ring diameter of salmon in
+       freshwater and saltwater for Canadian and Alaskan fish")
 
 ################################################################################
 # TRAINING REPORT
@@ -145,7 +147,7 @@ report <- function(x, y, beta, epochs){
 
 
 # Vector of iterations
-epochs <- seq(0, 100, 5)
+epochs <- seq(0, 100, 10)
 
 report_detail <- report(x, y, beta, epochs)
 report_detail
@@ -154,4 +156,82 @@ ggplot(data = report_detail, mapping = aes(x = epoch, y = corrected)) +
   geom_point(shape = 15, colour = "red", size = 3) +
   geom_path(colour = "red") +
   coord_cartesian(xlim = c(0, 100), ylim = c(60, 100)) +
-  theme_bw()
+  theme_bw() +
+  scale_x_continuous(breaks = round(seq(0, 100, by = 10), 10)) +
+  geom_hline(yintercept=seq(60, 100, 10)) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  labs(x = "Epoch", y = "The number of correctly classified items", 
+       title = "The number of correctly classified items by Epoch")
+################################################################################
+# ANIMATION OF HOW BOUNDARY LINE EVOLVES IN 1 SINGLE EPOCH
+################################################################################
+# Cumulate changes of weight vector in a single epoch
+# x : input matrix
+# y : ouput vector
+cumulative_learning_func <- function(x, y) {
+  #cumulate weight
+  weight_df <- data.frame("w1" = numeric(), #bias
+                          "w2" = numeric(), 
+                          "w3" = numeric(),
+                          "x1" = numeric(),
+                          "x2" = numeric(),
+                          "x3" = numeric(),
+                          "y" = numeric()) 
+  beta <- 0.1 #set beta as 0.1
+  w <- vector(length = ncol(x)) #weight vector
+  
+  for (idx in 1:nrow(x)) {
+    # Net input
+    u <- x[idx, ]%*%w
+    
+    # Predicted output
+    p <- ifelse(u >= 0, 1, 0)
+    
+    # Error
+    e <- y[idx] - p
+    
+    # Adjust weights
+    w <- w + beta*e*x[idx,]
+    cum_vec <- append(w, c(x[idx,], y[idx]))
+    weight_df[idx, ] <- cum_vec
+  }
+  return (weight_df)
+}
+
+weight_df <- cumulative_learning_func(x, y)
+weight_df$origin <- dt$Origin
+
+draw.curve<-function(idx){
+  boundary_line <- data.frame(
+    "x" = x[, 2], "y" = boundary_func(x[, 2], as.numeric(weight_df[idx, 1:3])))
+  print(boundary_line)
+  # Plot
+  p <- ggplot() +
+    geom_point(data = dt, 
+               mapping = aes(x = Freshwater, y = Marine, 
+                             colour = Origin, shape = Origin), 
+               size = 2.5) +
+    geom_point(data = weight_df[idx, 5:8], 
+               aes(x = x2, y = x3, shape = origin, colour = origin), 
+               size = 10, fill = "white") +
+    geom_line(data = boundary_line, mapping = aes(x = x, y = y), 
+              colour="black", linetype="dashed") +
+    coord_cartesian(xlim = c(50, 200), ylim = c(200, 550)) +
+    labs(title = "The growth-ring diameter of salmon in
+         freshwater and saltwater for Canadian and Alaskan fish") +
+    geom_label(data = dt, size = 10, x = 150, y = 250, 
+               label = paste("# of items: ", idx))
+  print(p)
+}
+
+#function to iterate over the full span of w-values
+trace.animate <- function() {
+  lapply(seq(1, nrow(weight_df), 1), function(i) {
+    draw.curve(i)
+  })
+}
+
+#save all iterations into one GIF
+saveGIF(trace.animate(), loop = TRUE, ani.width = 600, interval = .9, 
+        movie.name="linear_neuron.gif")
