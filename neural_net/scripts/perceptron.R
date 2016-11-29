@@ -39,7 +39,7 @@ ggplot(data = dt, mapping = aes(x = Freshwater, y = Marine, colour=Origin,
 # beta : learning rate
 # iters : number of iterations
 learning_func <- function(x, y, w, beta, iters) {
-  for (i in 1:iters) {
+  for (j in 1:iters) {
     for (idx in 1:nrow(x)) {
       # Net input
       u <- x[idx, ]%*%w
@@ -80,11 +80,12 @@ w <- vector(length = ncol(x))
 beta <- 0.1
 
 # Iteration
-iters <- 50
+iters <- 100
 
 # Learning iteration starts here
 results <- learning_func(x, y, w, beta, iters)
 w <- results$w
+results
 
 # Boundary line
 boundary_func <-function(x, w, w0) {
@@ -96,6 +97,7 @@ boundary_line <- data.frame(x = x[,2], y = boundary_func(x[,2], w))
 ggplot() +
   geom_point(data = dt, mapping = aes(x = Freshwater, y = Marine, colour=Origin,
                                       shape = Origin), size = 2.5) +
-  geom_line(data = boundary_line, mapping = aes(x = x, y = y)) +
+  geom_line(data = boundary_line, mapping = aes(x = x, y = y), 
+            colour="black", linetype="dashed") +
   coord_cartesian(xlim = c(50, 200), ylim = c(200, 550))
 
