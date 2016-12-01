@@ -101,6 +101,9 @@ ggplot() +
   labs(title = "The growth-ring diameter of salmon in
        freshwater and saltwater for Canadian and Alaskan fish")
 
+# Save pic
+dev.copy(png,filename="figs/perceptron.png")
+dev.off ()
 ################################################################################
 # TRAINING REPORT
 ################################################################################
@@ -163,6 +166,10 @@ ggplot(data = report_detail, mapping = aes(x = epoch, y = corrected)) +
         panel.grid.minor = element_blank()) +
   labs(x = "Epoch", y = "The number of correctly classified items", 
        title = "The number of correctly classified items by Epoch")
+
+# Save pic
+dev.copy(png,filename="figs/perceptron_epochs.png")
+dev.off ()
 ################################################################################
 # ANIMATION OF HOW BOUNDARY LINE EVOLVES IN 1 SINGLE EPOCH
 ################################################################################
@@ -234,4 +241,4 @@ trace.animate <- function() {
 
 #save all iterations into one GIF
 saveGIF(trace.animate(), loop = TRUE, ani.width = 600, interval = .9, 
-        movie.name="linear_neuron.gif")
+        movie.name="linear_neuron.gif", imgdir = "figs")
