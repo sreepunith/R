@@ -24,9 +24,17 @@ train[indx] <- lapply(train[indx], as.character)
 
 str(train)
 
+
 ################################################################################
 # MISSING DATA HANDLING
 ################################################################################
+# Identify missing values
+# Fare == 0 doesnt make sense, thus should be missing values
+train$Fare[which(train$Fare == 0)] <- NA
+
+#########################################
+# CABIN
+#########################################
 # More than 70% of Cabin is missing, thus we have to remove
 train$Cabin <- NULL
 
@@ -82,14 +90,44 @@ summary(train$Title)
 # Impute age
 post <- mice(train[, ], maxit = 0)$post
 post["Age"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,80))"
-restricted <- mice(train, m = 100, post = post, seed = 123, method = 'norm')
+post["Fare"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,500))"
+restricted <- mice(train, m = 100, post = post, seed = 123, method = 'norm.predict')
 train_temp <- complete(restricted, 1)
 train <- train_temp
 
+################################################################################
+# OBSERVE DATA AFTER IMPUTATION
+################################################################################
 # Assure that no more missing
 missing_plot <- aggr(train, col=c('navyblue','red'), numbers=TRUE, 
                      sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern"))
+
+################################################################################
+# CATEGORISE DATA
+################################################################################
+# Sibsp
+train$SibSp <- as.factor(findInterval(train$SibSp, c(1, 2)))
+
+# Parch
+train$Parch <- as.factor(findInterval(train$Parch, c(1, 3)))
+
+for(level in unique(train$Sex)){
+  train[paste("Sex", level, sep = "_")] <- ifelse(train$Sex == level, 1, 0)
+}
+for(level in unique(train$Embarked)){
+  train[paste("Embarked", level, sep = "_")] <- ifelse(train$Embarked == level, 1, 0)
+}
+for(level in unique(train$Pclass)){
+  train[paste("Pclass", level, sep = "_")] <- ifelse(train$Pclass == level, 1, 0)
+}
+for(level in unique(train$Parch)){
+  train[paste("Parch", level, sep = "_")] <- ifelse(train$Parch == level, 1, 0)
+}
+for(level in unique(train$SibSp)){
+  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
+}
+
 ################################################################################
 # FEATURE SELECTION
 ################################################################################
@@ -107,28 +145,34 @@ inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
 training <- train[inTraining,]
 testing  <- train[-inTraining,]
 
-# train control
+# Train control
 fitControl <- trainControl(## 10-fold CV
   method = "repeatedcv",
   number = 10,
   ## repeated ten times
   repeats = 10)
 
-# Neural network model tuning
-nn_grid <-  expand.grid(size = c(5,7,8,9,10))
+# Model tuning
+ada_bag_grid <-  expand.grid(mfinal = c(10, 20, 30), maxdepth = c(7, 8, 9, 10, 11, 12))
 
 # Model
-nn_fit <- train(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title, 
+ada_bag_model <- train(Survived ~ Sex_female +
+                  Pclass_1 + Pclass_2 + Pclass_3 +
+                  Embarked_S + Embarked_C +
+                  SibSp_0 + SibSp_2 +
+                  Parch_0 + Parch_1 +
+                  Age + Fare, 
                 data = training, 
-                method = "mlp",
+                method = "AdaBag",
                 trControl = fitControl,
-                verbose = FALSE, 
-                tuneGrid = nn_grid,
-                metric = "ROC")
-nn_fit
-plot(nn_fit)
+                verbose = TRUE, 
+                tuneGrid = ada_bag_grid,
+                metric = "Accuracy")
+ada_bag_model
+plot(ada_bag_model)
 
 # Testing
-pred <- predict(nn_fit, newdata = testing)
+pred <- predict(ada_bag_model, newdata = testing)
 boosting_error <- mean(pred != testing$Survived)
 print(paste("Accuracy ", 1 - boosting_error))
+

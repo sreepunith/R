@@ -48,6 +48,17 @@ ggplot(train, aes(x=Fare, y=Age)) +
 dev.copy(png,filename="figs/survived_embarked_age_fare_facet_grid.png")
 dev.off ()
 
+## Find the relation between Survived, Sibsp
+ggplot(data = train, mapping = aes(x = SibSp)) +
+  geom_histogram()
+
+## Find the relation between Survived, Parch
+ggplot(data = train, mapping = aes(x = Parch)) +
+  geom_histogram()
+
+dev.copy(png,filename="figs/survived_parch_bar.png")
+dev.off ()
+
 ## Find the relation between Survived, Embarked
 ct_table <- as.data.frame(table(train$Embarked, train$Survived))
 names(ct_table) <- c("Embarked", "Survived", "Quantity")
