@@ -16,9 +16,7 @@ library(animation) #gif
 ################################################################################
 # DATA
 ################################################################################
-dt <- data.frame("x1" = c(1.5, -1, 0.5), 
-                 "x2" = c(1, 1, 0.5), 
-                 "type" = c(0, 1, 1))
+dt <- data.frame("x0" = c(1,1,1), "x1" = c(1, 1, 1.5), "x2" = c(1, 0, 0.5), "type" = c(0, 1, 1))
 dt$type <- as.factor(dt$type)
 
 # Plotting
@@ -60,7 +58,7 @@ learning_func <- function(x, y, w, beta, iters) {
 # MODELING
 ################################################################################
 # Input matrix x
-x <- as.matrix(dt[, 1:2]) 
+x <- as.matrix(dt[, 1:3]) 
 x <- matrix(x, ncol = ncol(x), dimnames = NULL)
 
 # Actual output
@@ -71,7 +69,7 @@ y[which(y == "0")] <- 0
 y <- as.numeric(y)
 
 # Weight vector with initial weights
-w <- c(-1, 2)
+w <- c(-1, 0, -1)
 
 # Iteration
 iters <- 2
@@ -84,9 +82,9 @@ w <- learning_func(x, y, w, beta, iters)
 
 # Boundary line
 boundary_func <-function(x, w) {
-  return (as.numeric((-w[1]*x) / w[2]))
+  return (as.numeric((-w[2]*x - w[1]) / w[3]))
 }
-boundary_line <- data.frame("x" = seq(-2, 2, 0.5), "y" = boundary_func(seq(-2, 2, 0.5), c(-2.5, 1)))
+boundary_line <- data.frame("x" = seq(-2, 2, 0.5), "y" = boundary_func(seq(-2, 2, 0.5), c(-1, 0, -2)))
 
 # Plot
 ggplot() +

@@ -61,6 +61,7 @@ learning_func <- function(x, y, w, beta, iters) {
 ################################################################################
 # Input matrix x
 dt <- dt[sample(nrow(dt)),]
+
 x <- as.matrix(dt[, 2:3]) 
 x <- matrix(x, ncol = ncol(x), dimnames = NULL)
 x <- cbind(x, rep(1, nrow(x)))
