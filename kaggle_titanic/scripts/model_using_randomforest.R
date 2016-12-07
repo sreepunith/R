@@ -91,7 +91,7 @@ summary(train$Title)
 post <- mice(train[, ], maxit = 0)$post
 post["Age"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,80))"
 post["Fare"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,500))"
-restricted <- mice(train, m = 100, post = post, seed = 123, method = 'norm.predict')
+restricted <- mice(train, m = 5000, post = post, seed = 345, method = 'norm.predict')
 train_temp <- complete(restricted, 1)
 train <- train_temp
 
@@ -103,30 +103,70 @@ missing_plot <- aggr(train, col=c('navyblue','red'), numbers=TRUE,
                      sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern"))
 
+
 ################################################################################
-# CATEGORISE DATA
+# CATEGORISE DATA & CREATE DUMMY VARIABLES FOR NOMINAL DATA
 ################################################################################
+# Pclass 
+for(level in unique(train$Pclass)){
+  train[paste("Pclass", level, sep = "_")] <- ifelse(train$Pclass == level, 1, 0)
+}
+
+# Embarked
+for(level in unique(train$Embarked)){
+  train[paste("Embarked", level, sep = "_")] <- ifelse(train$Embarked == level, 1, 0)
+}
+
 # Sibsp
 train$SibSp <- as.factor(findInterval(train$SibSp, c(1, 2)))
+
+for(level in unique(train$SibSp)){
+  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
+}
 
 # Parch
 train$Parch <- as.factor(findInterval(train$Parch, c(1, 3)))
 
-for(level in unique(train$Sex)){
-  train[paste("Sex", level, sep = "_")] <- ifelse(train$Sex == level, 1, 0)
-}
-for(level in unique(train$Embarked)){
-  train[paste("Embarked", level, sep = "_")] <- ifelse(train$Embarked == level, 1, 0)
-}
-for(level in unique(train$Pclass)){
-  train[paste("Pclass", level, sep = "_")] <- ifelse(train$Pclass == level, 1, 0)
-}
 for(level in unique(train$Parch)){
   train[paste("Parch", level, sep = "_")] <- ifelse(train$Parch == level, 1, 0)
 }
-for(level in unique(train$SibSp)){
-  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
+
+# Sex
+for(level in unique(train$Sex)){
+  train[paste("Sex", level, sep = "_")] <- ifelse(train$Sex == level, 1, 0)
 }
+
+# Fare
+train$Fare_factor <- as.factor(findInterval(train$Fare, c(32)))
+
+for(level in unique(train$Fare_factor)){
+  train[paste("Fare_factor", level, sep = "_")] <- ifelse(train$Fare_factor == level, 1, 0)
+}
+
+# Age
+train$Age_factor <- as.factor(findInterval(train$Age, c(21.1, 37, 60)))
+
+for(level in unique(train$Age_factor)){
+  train[paste("Age_factor", level, sep = "_")] <- ifelse(train$Age_factor == level, 1, 0)
+}
+################################################################################
+# STANDARDIZED DATA
+################################################################################
+standardized_0_1 <- function(x) {
+  return (x - min(x)/max(x) - min(x))
+}
+
+# Age
+train$Age_standardized <- standardized_0_1(train$Age)
+
+# Fare
+train$Fare_standardized <- standardized_0_1(train$Fare)
+
+################################################################################
+# STATISTICS TEST
+################################################################################
+flds <- createFolds(train$Survived, k = 10, list = TRUE, returnTrain = FALSE)
+names(flds)[1] <- "train"
 
 ################################################################################
 # FEATURE SELECTION
@@ -138,41 +178,42 @@ str(train)
 ################################################################################
 # BUIDING MODEL
 ################################################################################
-set.seed(123)
+set.seed(234)
 
 # Split data
-inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
+inTraining <- createDataPartition(train$Survived, p = .5, list = FALSE)
 training <- train[inTraining,]
 testing  <- train[-inTraining,]
 
 # Train control
-fitControl <- trainControl(## 10-fold CV
-  method = "repeatedcv",
-  number = 10,
-  ## repeated ten times
-  repeats = 10)
+fitControl <- trainControl(## 5-fold CV
+  method = "cv",
+  number = 5)
 
 # Model tuning
-ada_bag_grid <-  expand.grid(mfinal = 30, maxdepth = c(5, 6, 7, 8, 9, 10))
+grid <-  expand.grid(mtry = seq(1, 100, 1))
 
 # Model
-ada_bag_model <- train(Survived ~ Sex_female +
-                  Pclass_1 + Pclass_2 + Pclass_3 +
-                  Embarked_S + Embarked_C +
-                  SibSp_0 + SibSp_2 +
-                  Parch_0 + Parch_1 +
-                  Age + Fare, 
-                data = training, 
-                method = "AdaBag",
-                trControl = fitControl,
-                verbose = TRUE, 
-                tuneGrid = ada_bag_grid,
-                metric = "Accuracy")
-ada_bag_model
-plot(ada_bag_model)
+model <- train(as.factor(Survived) ~ Sex_male + Sex_female +
+                 Pclass_3 + Pclass_1 + Pclass_2 +
+                 Age_standardized +
+                 Fare_standardized, 
+               data = training, 
+               method = "parRF",
+               trControl = fitControl,
+               verbose = TRUE, 
+               tuneGrid = grid,
+               metric = "Accuracy")
+model
+
+# Plot model performance
+plot(model)
+
+# Check feature importances
+varImp(model)
 
 # Testing
-pred <- predict(ada_bag_model, newdata = testing)
-boosting_error <- mean(pred != testing$Survived)
-print(paste("Accuracy ", 1 - boosting_error))
+pred <- predict(model, newdata = testing)
+error <- mean(pred != testing$Survived)
+print(paste("Accuracy ", 1 - error))
 
