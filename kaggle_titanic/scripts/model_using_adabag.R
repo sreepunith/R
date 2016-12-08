@@ -157,10 +157,7 @@ ada_bag_grid <-  expand.grid(mfinal = 30, maxdepth = c(5, 6, 7, 8, 9, 10))
 
 # Model
 ada_bag_model <- train(Survived ~ Sex_female +
-                  Pclass_1 + Pclass_2 + Pclass_3 +
-                  Embarked_S + Embarked_C +
-                  SibSp_0 + SibSp_2 +
-                  Parch_0 + Parch_1 +
+                  Pclass_1 + Pclass_3 +
                   Age + Fare, 
                 data = training, 
                 method = "AdaBag",
