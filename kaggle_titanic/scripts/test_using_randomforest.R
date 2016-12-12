@@ -200,13 +200,13 @@ test$Embarked[which(is.na(test$Embarked))] <- "S"
 # AGE
 #########################################
 # 19% of Age is missing. We'll find a way to impute the data
-temp_test <- test[, c("Sex", "Age", "Title", "Fare")]
+temp_test <- test[, c("Sex", "Age", "Title", "Fare", "Pclass", "SibSp", "Parch", "Family")]
 # Impute age
 post <- mice(temp_test[, ], maxit = 0)$post
 post["Age"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,80))"
 post["Fare"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,500))"
 post
-restricted <- mice(temp_test, m = 200, post = post, seed = 345, method = 'norm.predict')
+restricted <- mice(temp_test, m = 5, post = post, seed = 567, method = 'norm')
 test_temp <- complete(restricted, 1)
 test$Age <- test_temp$Age
 test$Fare <- test_temp$Fare
@@ -277,10 +277,10 @@ standardized_0_1 <- function(x) {
 }
 
 # Age
-test$Age_standardized <- standardized_0_1(test$Age)
+test$Age_standardized <- (test$Age-min(test$Age))/(max(test$Age)-min(test$Age))
 
 # Fare
-test$Fare_standardized <- standardized_0_1(test$Fare)
+test$Fare_standardized <- (test$Fare-min(test$Fare))/(max(test$Fare)-min(test$Fare))
 
 ################################################################################
 # FEATURE SELECTION

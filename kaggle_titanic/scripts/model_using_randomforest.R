@@ -11,6 +11,7 @@ train_raw <- read.csv("data/train.csv", na.strings = c("NA", ""))
 
 # Back up
 train <- train_raw
+
 ################################################################################
 # DATA TYPES
 ################################################################################
@@ -210,13 +211,12 @@ train$Embarked[which(is.na(train$Embarked))] <- "S"
 # AGE
 #########################################
 # 19% of Age is missing. We'll find a way to impute the data
-temp_train <- train[, c("Sex", "Age", "Title", "Fare")]
+temp_train <- train[, c("Sex", "Age", "Title", "Fare", "Pclass")]
 # Impute age
 post <- mice(temp_train[, ], maxit = 0)$post
 post["Age"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,80))"
 post["Fare"] <- "imp[[j]][,i] <- squeeze(imp[[j]][,i], c(1,500))"
-post
-restricted <- mice(temp_train, m = 200, post = post, seed = 345, method = 'norm.predict')
+restricted <- mice(temp_train, m = 5, post = post, seed = 567, method = 'norm')
 train_temp <- complete(restricted, 1)
 train$Age <- train_temp$Age
 train$Fare <- train_temp$Fare
@@ -307,7 +307,7 @@ str(train)
 set.seed(234)
 
 # Split data
-inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
+inTraining <- createDataPartition(train$Survived, p = .5, list = FALSE)
 training <- train[inTraining,]
 testing  <- train[-inTraining,]
 
@@ -316,23 +316,23 @@ fitControl <- trainControl(## 10-fold CV
   method = "repeatedcv",
   number = 10,
   repeats = 10,
-  savePred = T,
   allowParallel = TRUE)
 
 # Model tuning
 grid <-  expand.grid(mtry = seq(1, 7, 1))
 
 # Model
-model <- train(as.factor(Survived) ~ Sex_male + Sex_female  +
-                 Pclass_3 + Pclass_1 +
-                 Age +
-                 Fare,
+model <- train(Survived ~ Sex_male + 
+                 Pclass_3 + Pclass_1 + Embarked +
+                 Age + 
+                 Fare + FamilySize,
                data = training, 
                method = "parRF",
                trControl = fitControl,
                verbose = TRUE, 
                tuneGrid = grid,
-               preProc=c("center", "scale"))
+               preProc=c("center", "scale"),
+               metric = "Kappa")
 model
 
 # Plot model performance
