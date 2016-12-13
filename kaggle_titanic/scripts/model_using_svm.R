@@ -307,7 +307,7 @@ str(train)
 set.seed(234)
 
 # Split data
-inTraining <- createDataPartition(train$Survived, p = .5, list = FALSE)
+inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
 training <- train[inTraining,]
 testing  <- train[-inTraining,]
 
@@ -319,7 +319,7 @@ fitControl <- trainControl(## 10-fold CV
   allowParallel = TRUE)
 
 # Model tuning
-grid <-  expand.grid(mtry = seq(1, 7, 1))
+grid <-  expand.grid(mtry = (1:7), coefReg = (1:10)*0.03)
 
 # Model
 model <- train(Survived ~ Sex_male + 
@@ -327,7 +327,7 @@ model <- train(Survived ~ Sex_male +
                  Age + 
                  Fare + FamilySize,
                data = training, 
-               method = "parRF",
+               method = "RRFglobal",
                trControl = fitControl,
                verbose = TRUE, 
                tuneGrid = grid,
