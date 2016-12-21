@@ -100,7 +100,7 @@ ggplot() +
             colour="black", linetype="dashed") +
   coord_cartesian(xlim = c(50, 200), ylim = c(200, 550)) +
   labs(title = "The growth-ring diameter of salmon in
-       freshwater and saltwater for Canadian and Alaskan fish")
+       freshwater and saltwater for Canadian and Alaskan fish") +
 
 # Save pic
 dev.copy(png,filename="figs/perceptron.png")
