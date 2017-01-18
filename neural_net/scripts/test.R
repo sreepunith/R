@@ -1,242 +1,109 @@
-# This script is an implementation of perceptron learning proposed by Rosenblatt
-# in 1950s. In detail, Rosenblatt used Hebbian learning (Donald Hebb, 1949) to 
-# make threshold neuron of McCulloch-Pitts learn.
-# In detail, read: section 2.5. of Neural Networks for Applied Sciences and 
-# Engineering
-################################################################################
-# CLEAN WORKING ENV
-################################################################################
-rm(list=ls())
-
-################################################################################
-# LIBRARY
-################################################################################
-library(ggplot2) #plot
-library(animation) #gif
-################################################################################
-# DATA
-################################################################################
-dt <- data.frame("x1" = c(1.5, -1, 0.5), 
-                 "x2" = c(1, 1, 0.5), 
-                 "type" = c(0, 1, 1))
-dt$type <- as.factor(dt$type)
-
-# Plotting
-ggplot(data = dt, mapping = aes(x = x1, y = x2, colour = type, 
-                                shape = type)) +
-  geom_point(size = 5) +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) +
-  geom_hline(yintercept = 0) +
-  geom_vline(xintercept = 0)
-
-################################################################################
-# LEARNING ALGORITHM
-################################################################################
-# Learning function of the perceptron
-# x : input matrix
-# y : ouput vector
-# w : weight vector
-# beta : learning rate
-# iters : number of iterations
-learning_func <- function(x, y, w, beta, iters) {
-  for (j in 1:iters) {
-    for (idx in 1:nrow(x)) {
-      # Net input
-      u <- x[idx, ]%*%w
-      # Predicted output
-      p <- ifelse(u >= 0, 1, 0)
-      
-      # Error
-      e <- y[idx] - p
-      
-      # Adjust weights
-      w <- w + beta*e*x[idx,]
-      print(w)
-    }
-  }
-  return (w)
-}
-################################################################################
-# MODELING
-################################################################################
-# Input matrix x
-x <- as.matrix(dt[, 1:2]) 
-x <- matrix(x, ncol = ncol(x), dimnames = NULL)
-
-# Actual output
-y <- dt$type
-y <- as.character(y)
-y[which(y == "1")] <- 1
-y[which(y == "0")] <- 0
-y <- as.numeric(y)
-
-# Weight vector with initial weights
-w <- c(-1, 2)
-
-# Iteration
-iters <- 2
-
-# Learning rate beta
-beta <- 1
-
-# Learning iteration starts here
-w <- learning_func(x, y, w, beta, iters)
-
-# Boundary line
-boundary_func <-function(x, w) {
-  return (as.numeric((-w[1]*x) / w[2]))
-}
-boundary_line <- data.frame("x" = seq(-2, 2, 0.5), "y" = boundary_func(seq(-2, 2, 0.5), c(-2.5, 1)))
-
-# Plot
-ggplot() +
-  geom_point(data = dt, mapping = aes(x = x1, y = x2, colour = type,
-                                      shape = type), size = 5) +
-  geom_line(data = boundary_line, mapping = aes(x = x, y = y), 
-            colour="black", linetype="dashed") +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) +
-  geom_hline(yintercept = 0) +
-  geom_vline(xintercept = 0)
-
-# Save pic
-dev.copy(png,filename="figs/perceptron_5.png")
-dev.off ()
-
-################################################################################
-# TRAINING REPORT
-################################################################################
-# Weight vector with initial weights
-w <- vector(length = ncol(x))
-
-# test() surveys on how many items are correctly classified
-# x: input matrix
-# y: output vector
-# w: weight vector
-test <- function(x, y, w) {
-  correctly_classified <- 0
-  for (idx in 1:nrow(x)) {
-    # Net input
-    u <- x[idx, ]%*%w
-    
-    # Predicted output
-    p <- ifelse(u >= 0, 1, 0)
-    
-    # Error
-    e <- y[idx] - p
-    
-    # Cumulate correctly classified item
-    correctly_classified <- ifelse(e == 0, 
-                                   correctly_classified + 1, 
-                                   correctly_classified)
-  }
-  return (as.numeric(correctly_classified))
-}
-# report() cumulates all possible iterations
-# x: input
-# y: output
-# w: inital weight
-# epochs: vector of the number of iterations
-report <- function(x, y, beta, epochs){
-  correctly_classified <- vector(length = 0)
-  for (idx in epochs) {
-    w <- vector(length = ncol(x))
-    w <- learning_func(x, y, w, beta, idx)
-    correctly_classified <- append(correctly_classified, test(x, y, w))
-  }
-  return (data.frame(epoch = epochs, corrected = correctly_classified))
-}
+samp <- c(sample(1:50,25), sample(51:100,25), sample(101:150,25))
+x=1:4
+y=5
+traindata=iris[samp,]
+testdata=iris[-samp,]
+hidden=6
+maxit=2000
+display=50
+abstol=1e-2
+lr = 1e-2
+reg = 1e-3
+display = 100
+random.seed = 1
 
 
-# Vector of iterations
-epochs <- seq(0, 100, 10)
+# to make the case reproducible.
+set.seed(random.seed)
 
-report_detail <- report(x, y, beta, epochs)
-report_detail
+# total number of training set
+N <- nrow(traindata)
 
-ggplot(data = report_detail, mapping = aes(x = epoch, y = corrected)) +
-  geom_point(shape = 15, colour = "red", size = 3) +
-  geom_path(colour = "red") +
-  coord_cartesian(xlim = c(0, 100), ylim = c(60, 100)) +
-  theme_bw() +
-  scale_x_continuous(breaks = round(seq(0, 100, by = 10), 10)) +
-  geom_hline(yintercept=seq(60, 100, 10)) +
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) +
-  labs(x = "Epoch", y = "The number of correctly classified items", 
-       title = "The number of correctly classified items by Epoch")
+# extract the data and label
+# don't need atribute 
+X <- unname(data.matrix(traindata[,x]))
+Y <- traindata[,y]
+if(is.factor(Y)) { Y <- as.integer(Y) }
+# updated: 10.March.2016: create index for both row and col
+Y.len   <- length(unique(Y))
+Y.set   <- sort(unique(Y))
+Y.index <- cbind(1:N, match(Y, Y.set))
 
-# Save pic
-dev.copy(png,filename="figs/perceptron_epochs.png")
-dev.off ()
-################################################################################
-# ANIMATION OF HOW BOUNDARY LINE EVOLVES IN 1 SINGLE EPOCH
-################################################################################
-# Cumulate changes of weight vector in a single epoch
-# x : input matrix
-# y : ouput vector
-cumulative_learning_func <- function(x, y) {
-  #cumulate weight
-  weight_df <- data.frame("w1" = numeric(), #bias
-                          "w2" = numeric(), 
-                          "w3" = numeric(),
-                          "x1" = numeric(),
-                          "x2" = numeric(),
-                          "x3" = numeric(),
-                          "y" = numeric()) 
-  beta <- 0.1 #set beta as 0.1
-  w <- vector(length = ncol(x)) #weight vector
-  
-  for (idx in 1:nrow(x)) {
-    # Net input
-    u <- x[idx, ]%*%w
-    
-    # Predicted output
-    p <- ifelse(u >= 0, 1, 0)
-    
-    # Error
-    e <- y[idx] - p
-    
-    # Adjust weights
-    w <- w + beta*e*x[idx,]
-    cum_vec <- append(w, c(x[idx,], y[idx]))
-    weight_df[idx, ] <- cum_vec
-  }
-  return (weight_df)
-}
+# number of input features
+D <- ncol(X)
+# number of categories for classification
+K <- length(unique(Y))
+H <-  hidden
 
-weight_df <- cumulative_learning_func(x, y)
-weight_df$origin <- dt$Origin
+# create and init weights and bias 
+W1 <- 0.01*matrix(rnorm(D*H), nrow=D, ncol=H)
+b1 <- matrix(0, nrow=1, ncol=H)
 
-draw.curve<-function(idx){
-  boundary_line <- data.frame(
-    "x" = x[, 2], "y" = boundary_func(x[, 2], as.numeric(weight_df[idx, 1:3])))
-  print(boundary_line)
-  # Plot
-  p <- ggplot() +
-    geom_point(data = dt, 
-               mapping = aes(x = Freshwater, y = Marine, 
-                             colour = Origin, shape = Origin), 
-               size = 2.5) +
-    geom_point(data = weight_df[idx, 5:8], 
-               aes(x = x2, y = x3, shape = origin, colour = origin), 
-               size = 10, fill = "white") +
-    geom_line(data = boundary_line, mapping = aes(x = x, y = y), 
-              colour="black", linetype="dashed") +
-    coord_cartesian(xlim = c(50, 200), ylim = c(200, 550)) +
-    labs(title = "The growth-ring diameter of salmon in
-         freshwater and saltwater for Canadian and Alaskan fish") +
-    geom_label(data = dt, size = 10, x = 150, y = 250, 
-               label = paste("# of items: ", idx))
-  print(p)
-}
+W2 <- 0.01*matrix(rnorm(H*K), nrow=H, ncol=K)
+b2 <- matrix(0, nrow=1, ncol=K)
 
-#function to iterate over the full span of w-values
-trace.animate <- function() {
-  lapply(seq(1, nrow(weight_df), 1), function(i) {
-    draw.curve(i)
-  })
-}
+# use all train data to update weights since it's a small dataset
+batchsize <- N
+# updated: March 17. 2016
+# init loss to a very big value
+loss <- 100000
 
-#save all iterations into one GIF
-saveGIF(trace.animate(), loop = TRUE, ani.width = 600, interval = .9, 
-        movie.name="linear_neuron.gif", imgdir = "figs")
+# Training the network
+i <- 1
+
+# forward ....
+# 1 indicate row, 2 indicate col
+hidden.layer <- sweep(X %*% W1 ,2, b1, '+')
+
+# neurons : ReLU
+hidden.layer <- pmax(hidden.layer, 0)
+score <- sweep(hidden.layer %*% W2, 2, b2, '+')
+
+# softmax
+score.exp <- exp(score)
+probs <-sweep(score.exp, 1, rowSums(score.exp), '/') 
+
+# compute the loss
+# corect.logprobs <- -log(probs[Y.index])
+# data.loss  <- sum(corect.logprobs)/batchsize
+# reg.loss   <- 0.5*reg* (sum(W1*W1) + sum(W2*W2))
+# loss <- data.loss + reg.loss
+
+# backward ....
+dscores <- probs
+dscores[Y.index] <- dscores[Y.index] -1
+
+dscores <- dscores / batchsize
+
+
+dW2 <- t(hidden.layer) %*% dscores 
+db2 <- colSums(dscores)
+
+dhidden <- dscores %*% t(W2)
+dhidden[hidden.layer <= 0] <- 0
+
+dW1 <- t(X) %*% dhidden
+db1 <- colSums(dhidden) 
+
+# update ....
+dW2 <- dW2 + reg*W2
+dW1 <- dW1  + reg*W1
+
+W1 <- W1 - lr * dW1
+b1 <- b1 - lr * db1
+
+W2 <- W2 - lr * dW2
+b2 <- b2 - lr * db2
+
+# final results
+# creat list to store learned parameters
+# you can add more parameters for debug and visualization
+# such as residuals, fitted.values ...
+model <- list( D = D,
+               H = H,
+               K = K,
+               # weights and bias
+               W1= W1, 
+               b1= b1, 
+               W2= W2, 
+               b2= b2)

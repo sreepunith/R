@@ -25,6 +25,21 @@ g <- function(z) {
   return (1/(1 + exp(-z)))
 }
 
+##################################################################
+i <- 1
+a_2 <- g(as.matrix(x[i,])%*%theta_1)
+a_3 <- g(a_2%*%theta_2)
+
+# Define delta_3
+delta_3 <- (a_3 - y[i,])
+
+# delta_2
+delta_2 <- delta_3*a_2*(1-a_2)
+
+theta_1 <- theta_1 - delta_2%*%(as.matrix(x[i,]))
+theta_2 <- theta_2 - t(a_2%*%t(delta_3))
+
+##############################################################
 error_log <- data.frame("iter" = numeric(), "val" = numeric())
 for (j in 1:1000) {
   e <- 0;
@@ -34,10 +49,10 @@ for (j in 1:1000) {
     
     # Define delta_3
     delta_3 <- a_3 - y[i,]
-    
+    delta_3
     # delta_2
     delta_2 <- (t(theta_2)%*%delta_3)*(a_2*(1-a_2))
-    
+    delta_2
     # Mean square error 
     e <- e + (delta_3)^2
     
@@ -49,7 +64,7 @@ for (j in 1:1000) {
   e <- sqrt(e/4)
   error_log[j, ] <-c(j, e)
 }
-error_log
+# error_log
 # i <- 1
 
 
