@@ -1,3 +1,5 @@
+# This code is the implementation of using softmax and cross-entropy to perform
+# multi-class classification task on the Iris flower dataset
 ################################################################################
 # LOAD LIBRARY
 ################################################################################
@@ -17,13 +19,14 @@ softmax <- function(z) {
   exp_score <- exp(shift_z)
   return (exp_score / sum(exp_score))
 }
-
+# Normalise to (0,1)
 range01 <- function(z){
   return ((z - min(z)) / (max(z) - min(z)))
 }
 ################################################################################
 # LOAD DATA
 ################################################################################
+# Load data
 data(iris)
 dt <- iris
 
@@ -37,6 +40,7 @@ summary(dt)
 ################################################################################
 # PLOT 
 ################################################################################
+# Box plot of 4 features of the data
 dt_reshaped <- melt(iris, id.var = "Species")
 
 ggplot(data = dt_reshaped, 
@@ -47,7 +51,6 @@ ggplot(data = dt_reshaped,
   theme(legend.position="bottom", legend.title=element_blank())
 
 ggsave("figs/iris_features_boxplot.png")
-
 ################################################################################
 # BACKPROPAGATION
 ################################################################################
@@ -101,14 +104,13 @@ training_size <- 120 # testing size
 samp <- sample(1:training_size, training_size)
 
 # Training data
-training_x <- x[, samp]
-training_y <- y[, samp]
-y_single <- dt[,y_idx]
-y_single <- y_single[samp]
+training_x <- x[, samp] #input training 5x120
+training_y <- y[, samp] #output training 3x120
+y_single <- dt[,y_idx][samp] #output training 1x120
 
 # Testing data
-testing_x <- x[, -samp]
-desire_result <- dt$Species[-samp]
+testing_x <- x[, -samp] #input testing 5x30
+desire_result <- dt$Species[-samp] #output testing 1x30
 
 ##############################
 # TRAINING
@@ -130,7 +132,7 @@ for (j in 1:epoches) {
   ## Output layer
   s2 <- t(w2) %*% a1
   s2
-  a2 <- apply(s2, 2, softmax)
+  a2 <- apply(s2, 2, softmax) #Softmax
   a2
   
   ## Loss
@@ -177,9 +179,11 @@ for (j in 1:epoches) {
 ################################################################################
 # REPORT
 ################################################################################
+# Collect data for report
 report <- data.frame(accuracy = accuracy, epoch = 1:epoches, loss = loss)
-report <- report[which((report$epoch %% 200) == 0),]
+report <- report[which((report$epoch %% 200) == 0),] #keep less epoches
 
+# Plot
 ggplot(data = report, mapping = aes(x = epoch)) +
   geom_path(aes(y = accuracy, colour = "Accuracy")) +
   geom_path(aes(y = loss, colour = "Loss")) +
@@ -188,4 +192,4 @@ ggplot(data = report, mapping = aes(x = epoch)) +
   xlab("Epoch") + ylab("") +
   theme(legend.title=element_blank())
 
-# ggsave("figs/accuracy.png")
+ggsave("figs/iris_accuracy_vs_loss.png")
