@@ -1,0 +1,41 @@
+---
+title: "House prices data munging"
+author: "newbiettn"
+date: "17 December 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load library
+
+```{r, message=FALSE}
+library(VIM) #aggr
+```
+
+### Load data 
+```{r}
+train_raw <- read.csv("data/train.csv", na.strings = c("NA", ""))
+
+# Back up
+train <- train_raw
+```
+
+### Change data types properly
+```{r, message=FALSE}
+str(train)
+
+indx <- c("MSSubClass", "OverallQual", "OverallCond", "YearBuilt", "YearRemodAdd",
+          "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr",
+          "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces")
+train[indx] <- lapply(train[indx], as.character)
+```
+
+### Missing data
+```{r, message=FALSE}
+aggr(train, col=c('navyblue','red'), numbers=TRUE, 
+                     sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
+                     ylab=c("Histogram of missing data","Pattern"))
+```

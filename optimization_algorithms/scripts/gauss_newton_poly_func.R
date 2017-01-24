@@ -114,4 +114,5 @@ trace.animate <- function() {
 }
 
 # save all iterations into one GIF
-saveGIF(trace.animate(), loop = TRUE, ani.width = 600, interval = 1, movie.name="gauss_newton_poly_func.gif")
+saveGIF(trace.animate(), loop = TRUE, ani.width = 600, interval = 1, 
+        movie.name="gauss_newton_poly_func.gif")

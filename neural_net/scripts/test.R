@@ -64,11 +64,11 @@ score.exp <- exp(score)
 probs <-sweep(score.exp, 1, rowSums(score.exp), '/') 
 
 # compute the loss
-# corect.logprobs <- -log(probs[Y.index])
-# data.loss  <- sum(corect.logprobs)/batchsize
-# reg.loss   <- 0.5*reg* (sum(W1*W1) + sum(W2*W2))
-# loss <- data.loss + reg.loss
-
+corect.logprobs <- -log(probs[Y.index])
+data.loss  <- sum(corect.logprobs)/batchsize
+reg.loss   <- 0.5*reg* (sum(W1*W1) + sum(W2*W2))
+loss <- data.loss + reg.loss
+print(data.loss)
 # backward ....
 dscores <- probs
 dscores[Y.index] <- dscores[Y.index] -1

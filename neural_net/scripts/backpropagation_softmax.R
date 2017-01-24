@@ -1,8 +1,8 @@
 ################################################################################
 # LOAD LIBRARY
 ################################################################################
-library(mlbench) #PimaIndiansDiabetes
-
+library(mlbench)
+library(ggplot2)
 ################################################################################
 # UTILITIES 
 ################################################################################
@@ -26,6 +26,7 @@ range01 <- function(z){
 ################################################################################
 data(iris)
 dt <- iris
+
 dt$Species <- as.character(dt$Species)
 dt$Species[which(dt$Species =="setosa")] <- 1
 dt$Species[which(dt$Species =="versicolor")] <- 2
@@ -34,14 +35,30 @@ dt$Species <- as.factor(dt$Species)
 summary(dt)
 
 ################################################################################
+# PLOT 
+################################################################################
+dt_reshaped <- melt(iris, id.var = "Species")
+
+ggplot(data = dt_reshaped, 
+       mapping = aes(x = variable, y = value, fill = Species)) +
+  geom_boxplot() +
+  facet_grid(.~variable, scales="free_x") +
+  xlab("") + ylab("") + ggtitle("Iris flower dataset description") +
+  theme(legend.position="bottom", legend.title=element_blank())
+
+ggsave("figs/iris_features_boxplot.png")
+
+################################################################################
 # BACKPROPAGATION
 ################################################################################
-set.seed(123)
-samp <- sample(1:nrow(dt), nrow(dt))
+##############################
+# INITIALISATION
+##############################
+set.seed(65432)
 
-dt <- dt[samp,]
-
-learning_rate <- 0.01
+# Shuffle the data
+rand <- sample(1:nrow(dt), nrow(dt))
+dt <- dt[rand,]
 
 # Initial weight matrices 
 w1 <- matrix(rnorm(25, mean = 1, sd = 1), nrow = 5, ncol = 5)
@@ -58,7 +75,7 @@ x <- cbind(1, x) # Add bias
 x <- t(x) # Return to column vector form
 
 # Output
-classes <- unique(dt[,y_idx])
+classes <- sort(unique(dt[,y_idx]))
 for(level in classes){ # Generate dummy columns
   dt[paste("class", level, sep = "")] <- ifelse(dt[, y_idx] == level, 1, 0)
 }
@@ -66,49 +83,46 @@ y <- dt[, -(1:y_idx)] # Get the last dummy columns
 y <- unname(data.matrix(y)) # Convert to matrix
 y <- t(y) # Return to column vector form
 
-# In the end we have
-x
+# Misc
+learning_rate <- 1e-3 #learning rate
+reg_rate <- 1e-12 #regularization rate
+epoches <- 1e4 #the number of epoches
 
-y
-w1
-w2
-
+##############################
+# DATA NORMALISATION
+##############################
 x <- apply(x, 2, range01)
-x
 
-#############################################################
-# x <- range01(x)
-# 
-# # Forward
-# ## Hidden layer
-# s1 <- t(w1) %*% x
-# s1
-# a1 <- sigmoid(s1) # Sigmoid
-# a1
-# 
-# ## Output layer
-# s2 <- t(w2) %*% a1
-# s2
-# a2 <- apply(s2, 2, softmax)
-# a2
-# 
-# # Backward
-# ## w2
-# dw2 <- (-1) * a1 %*% t(y - a2) # Gradient
-# dw2
-# w2 <- w2 - learning_rate * dw2 #  Update
-# 
-# ## w1
-# dw1 <- (w2 %*% (y - a2) * (a1*(1-a1))) %*% t(x) # Gradient
-# dw1
-# w1 <- w1 - learning_rate * dw1 # Update
+##############################
+# DATA SPLITING
+##############################
+# Split data for testing and training
+training_size <- 120 # testing size
+samp <- sample(1:training_size, training_size)
 
-#############################################################
-# error_log <- data.frame("iter" = numeric(), "val" = numeric())
-for (j in 1:8000) {
-  # Forward
+# Training data
+training_x <- x[, samp]
+training_y <- y[, samp]
+y_single <- dt[,y_idx]
+y_single <- y_single[samp]
+
+# Testing data
+testing_x <- x[, -samp]
+desire_result <- dt$Species[-samp]
+
+##############################
+# TRAINING
+##############################
+# Store logs for reporting
+accuracy <- numeric() #accuracy 
+loss <- numeric() #loss
+
+for (j in 1:epoches) {
+  ##############################
+  # FORWARD
+  ##############################
   ## Hidden layer
-  s1 <- t(w1) %*% x
+  s1 <- t(w1) %*% training_x
   s1
   a1 <- sigmoid(s1) # Sigmoid
   a1
@@ -119,31 +133,59 @@ for (j in 1:8000) {
   a2 <- apply(s2, 2, softmax)
   a2
   
-  # Backward
+  ## Loss
+  matching_probs <- sapply(1:ncol(a2), function(i) return (a2[y_single[i], i]))
+  log_prob <- -log(matching_probs)
+  cross_entropy_loss  <- sum(log_prob)/training_size
+  reg_loss <- 0.5*reg_rate* (sum(w1*w1) + sum(w2*w2))
+  loss <- c(loss, cross_entropy_loss + reg_loss)
+  
+  ##############################
+  # TESTING
+  ##############################
+  # Hidden layer
+  s1_test <- t(w1) %*% testing_x
+  s1_test
+  a1_test <- sigmoid(s1_test) # Sigmoid
+  a1_test
+  
+  # Output layer
+  s2_test <- t(w2) %*% a1_test
+  s2_test
+  a2_test <- apply(s2_test, 2, softmax)
+  a2_test
+  
+  # Result
+  result <- max.col(t(a2_test))
+  accuracy <- c(accuracy, (mean(as.integer(desire_result) == result)))
+  
+  ##############################
+  # BACKWARD
+  ##############################
   ## w2
-  dw2 <- (-1) * a1 %*% t(y - a2) # Gradient
+  dw2 <- (-1) * a1 %*% t(training_y - a2) # Gradient
   dw2
-  w2 <- w2 - learning_rate * dw2 # Update
+  dw2 <- dw2 + reg_rate*w2
+  w2 <- w2 - learning_rate * dw2 #  Update
   
   ## w1
-  dw1 <- (w2 %*% (y - a2) * (a1*(1-a1))) %*% t(x) # Gradient
+  dw1 <- (w2 %*% (training_y - a2) * (a1*(1-a1))) %*% t(training_x) # Gradient
   dw1
+  dw1 <- dw1 + reg_rate*w1
   w1 <- w1 - learning_rate * dw1 # Update
-  
 }
-w1
-w2
+################################################################################
+# REPORT
+################################################################################
+report <- data.frame(accuracy = accuracy, epoch = 1:epoches, loss = loss)
+report <- report[which((report$epoch %% 200) == 0),]
 
-########################################################
-# Forward
-## Hidden layer
-s1 <- t(w1) %*% x
-s1
-a1 <- sigmoid(s1) # Sigmoid
-a1
+ggplot(data = report, mapping = aes(x = epoch)) +
+  geom_path(aes(y = accuracy, colour = "Accuracy")) +
+  geom_path(aes(y = loss, colour = "Loss")) +
+  geom_point(aes(y = loss, colour = "Loss"), shape = 0) + 
+  geom_point(aes(y = accuracy, colour = "Accuracy"), shape = 21) +
+  xlab("Epoch") + ylab("") +
+  theme(legend.title=element_blank())
 
-## Output layer
-s2 <- t(w2) %*% a1
-s2
-a2 <- apply(s2, 2, softmax)
-a2
+# ggsave("figs/accuracy.png")

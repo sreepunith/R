@@ -18,8 +18,8 @@ softmax <- function(z) {
   return (exp_score / sum(exp_score))
 }
 
-range01 <- function(x){
-  (x-min(x))/(max(x)-min(x))
+range01 <- function(z){
+  return ((z - min(z)) / (max(z) - min(z)))
 }
 ################################################################################
 # LOAD DATA
@@ -36,7 +36,7 @@ summary(dt)
 ################################################################################
 # BACKPROPAGATION
 ################################################################################
-set.seed(1)
+set.seed(123)
 samp <- sample(1:nrow(dt), nrow(dt))
 
 dt <- dt[samp,]
@@ -68,41 +68,51 @@ y <- t(y) # Return to column vector form
 
 # In the end we have
 x
+
 y
 w1
 w2
 
-x <- range01(x)
+x <- apply(x, 2, range01)
+x
+
 #############################################################
-# x <- range01(x)
-# 
-# # Forward
-# ## Hidden layer
-# s1 <- t(w1) %*% x
-# s1
-# a1 <- sigmoid(s1) # Sigmoid
-# a1
-# 
-# ## Output layer
-# s2 <- t(w2) %*% a1
-# s2
-# a2 <- apply(s2, 2, softmax)
-# a2
-# 
-# # Backward
-# ## w2
-# dw2 <- (-1) * a1 %*% t(y - a2) # Gradient
-# dw2
-# w2 <- w2 - learning_rate * dw2 #  Update
-# 
-# ## w1
-# dw1 <- (w2 %*% (y - a2) * (a1*(1-a1))) %*% t(x) # Gradient
-# dw1
-# w1 <- w1 - learning_rate * dw1 # Update
+x <- range01(x)
+
+# Forward
+## Hidden layer
+s1 <- t(w1) %*% x
+s1
+a1 <- sigmoid(s1) # Sigmoid
+a1
+
+## Output layer
+s2 <- t(w2) %*% a1
+s2
+a2 <- apply(s2, 2, softmax)
+a2
+
+matching_probs <- sapply(1:ncol(a2), function(i) return (a2[dt$Species[i], i]))
+
+log_prob <- -log(matching_probs)
+data.loss  <- sum(log_prob)/150
+reg.loss   <- 0.5*1e-3* (sum(w1*w1) + sum(w2*w2))
+data.loss 
+
+# Backward
+## w2
+dw2 <- (-1) * a1 %*% t(y - a2) # Gradient
+dw2
+w2 <- w2 - learning_rate * dw2 #  Update
+
+## w1
+dw1 <- (w2 %*% (y - a2) * (a1*(1-a1))) %*% t(x) # Gradient
+dw1
+w1 <- w1 - learning_rate * dw1 # Update
 
 #############################################################
 # error_log <- data.frame("iter" = numeric(), "val" = numeric())
-for (j in 1:5000) {
+for (j in 1:8000) {
   # Forward
   ## Hidden layer
   s1 <- t(w1) %*% x
@@ -120,7 +130,7 @@ for (j in 1:5000) {
   ## w2
   dw2 <- (-1) * a1 %*% t(y - a2) # Gradient
   dw2
-  w2 <- w2 - learning_rate * dw2 #  Update
+  w2 <- w2 - learning_rate * dw2 # Update
   
   ## w1
   dw1 <- (w2 %*% (y - a2) * (a1*(1-a1))) %*% t(x) # Gradient
