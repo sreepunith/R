@@ -1,109 +1,180 @@
-samp <- c(sample(1:50,25), sample(51:100,25), sample(101:150,25))
-x=1:4
-y=5
-traindata=iris[samp,]
-testdata=iris[-samp,]
-hidden=6
-maxit=2000
-display=50
-abstol=1e-2
-lr = 1e-2
-reg = 1e-3
-display = 100
-random.seed = 1
+# This code is the implementation of using softmax and cross-entropy to perform
+# multi-class classification task on the Iris flower dataset
+################################################################################
+# LOAD LIBRARY
+################################################################################
+library(mlbench)
+library(ggplot2)
+################################################################################
+# UTILITIES 
+################################################################################
+# Define sigmoid function
+sigmoid <- function(z) {
+  return (1/(1 + exp(-z)))
+}
 
+# Define softmax function
+softmax <- function(z) {
+  shift_z <- z - max(z)
+  exp_score <- exp(shift_z)
+  return (exp_score / sum(exp_score))
+}
+softmax_1 <- function(z) {
+  exp_score <- exp(z*1)
+  return (exp_score / sum(exp_score))
+}
+# Normalise to (0,1)
+range01 <- function(z){
+  return ((z - min(z)) / (max(z) - min(z)))
+}
+################################################################################
+# LOAD DATA
+################################################################################
+# Load data
+data(iris)
+dt <- iris
 
-# to make the case reproducible.
-set.seed(random.seed)
+dt$Species <- as.character(dt$Species)
+dt$Species[which(dt$Species =="setosa")] <- 1
+dt$Species[which(dt$Species =="versicolor")] <- 2
+dt$Species[which(dt$Species =="virginica")] <- 3
+dt$Species <- as.factor(dt$Species)
+summary(dt)
 
-# total number of training set
-N <- nrow(traindata)
+################################################################################
+# TRAINING WITH L2 REGULARIZATION
+################################################################################
+set.seed(65432)
+x_idx = 1:4
+y_idx = 5
+data = dt
+training_percent = 0.7
+learning_rate = 1e-1
+regularization_rate = 1e-12
+iters = 15000
 
-# extract the data and label
-# don't need atribute 
-X <- unname(data.matrix(traindata[,x]))
-Y <- traindata[,y]
-if(is.factor(Y)) { Y <- as.integer(Y) }
-# updated: 10.March.2016: create index for both row and col
-Y.len   <- length(unique(Y))
-Y.set   <- sort(unique(Y))
-Y.index <- cbind(1:N, match(Y, Y.set))
+N <- nrow(data)
+##############################
+# Data spliting
+##############################
+# Shuffle the data
+smpl <- sample(1:N, N) 
+data <- data[smpl,]
 
-# number of input features
-D <- ncol(X)
-# number of categories for classification
-K <- length(unique(Y))
-H <-  hidden
+# Input and output
+y <- data[, y_idx]
 
-# create and init weights and bias 
-W1 <- 0.01*matrix(rnorm(D*H), nrow=D, ncol=H)
-b1 <- matrix(0, nrow=1, ncol=H)
+## Input
+x <- data[, x_idx]
+x <- unname(data.matrix(data[x_idx]))
+x <- cbind(1, x) # Add bias
+x <- t(x) # Return to column vector form
+x <- apply(x, 2, range01) #data normalisation
 
-W2 <- 0.01*matrix(rnorm(H*K), nrow=H, ncol=K)
-b2 <- matrix(0, nrow=1, ncol=K)
+## Output
+classes <- sort(unique(data[,y_idx]))
+for(level in classes){ # Generate dummy columns
+  data[paste("class", level, sep = "")] <- ifelse(data[, y_idx] == level, 1, 0)
+}
+y <- data[, -(1:y_idx)] # Get the last dummy columns
+y <- unname(data.matrix(y)) # Convert to matrix
+y <- t(y) # Return to column vector form
 
-# use all train data to update weights since it's a small dataset
-batchsize <- N
-# updated: March 17. 2016
-# init loss to a very big value
-loss <- 100000
+# Split data for testing and training
+training_size <- N*training_percent
+testing_size <- N - training_size
 
-# Training the network
-i <- 1
+# Training data
+training_x <- x[, 1:training_size]
+training_y <- y[, 1:training_size] #output training 3x120
+y_single <- data[,y_idx][1:training_size] #output training 1x120
 
-# forward ....
-# 1 indicate row, 2 indicate col
-hidden.layer <- sweep(X %*% W1 ,2, b1, '+')
+# Testing data
+testing_x <- x[, (training_size+1):N] #input testing 5x30
+desire_result <- data[,y_idx][(training_size+1):N] #output testing 1x30
 
-# neurons : ReLU
-hidden.layer <- pmax(hidden.layer, 0)
-score <- sweep(hidden.layer %*% W2, 2, b2, '+')
+##############################
+# Initial weight matrices 
+##############################
+w1 <- matrix(rnorm(25, mean = 1, sd = 1), nrow = 5, ncol = 5)
+w2 <- matrix(rnorm(15, mean = 1, sd = 1), nrow = 5, ncol = 3)
 
-# softmax
-score.exp <- exp(score)
-probs <-sweep(score.exp, 1, rowSums(score.exp), '/') 
+##############################
+# Store logs for reporting
+##############################
+accuracy <- numeric() #accuracy 
+loss <- numeric() #loss
 
-# compute the loss
-corect.logprobs <- -log(probs[Y.index])
-data.loss  <- sum(corect.logprobs)/batchsize
-reg.loss   <- 0.5*reg* (sum(W1*W1) + sum(W2*W2))
-loss <- data.loss + reg.loss
-print(data.loss)
-# backward ....
-dscores <- probs
-dscores[Y.index] <- dscores[Y.index] -1
+for (j in 1:iters) {
+  ##############################
+  # Forward
+  ##############################
+  ## Hidden layer
+  s1 <- t(w1) %*% training_x
+  s1
+  a1 <- sigmoid(s1) # Sigmoid
+  a1
+  
+  ## Output layer
+  s2 <- t(w2) %*% a1
+  s2
+  a2 <- apply(s2, 2, softmax) #Softmax
+  a2
+  
+  ## Loss
+  matching_probs <- sapply(1:ncol(a2), function(i) return (a2[y_single[i], i]))
+  log_prob <- -log(matching_probs)
+  cross_entropy_loss  <- sum(log_prob)/training_size
+  reg_loss <- 0.5*regularization_rate* (sum(w1*w1) + sum(w2*w2))
+  loss <- c(loss, cross_entropy_loss + reg_loss)
+  
+  ##############################
+  # TESTING
+  ##############################
+  # Hidden layer
+  s1_test <- t(w1) %*% testing_x
+  s1_test
+  a1_test <- sigmoid(s1_test) # Sigmoid
+  a1_test
+  
+  # Output layer
+  s2_test <- t(w2) %*% a1_test
+  s2_test
+  a2_test <- apply(s2_test, 2, softmax)
+  a2_test
+  
+  # Result
+  result <- max.col(t(a2_test))
+  accuracy <- c(accuracy, (mean(as.integer(desire_result) == result)))
+  ##############################
+  # BACKWARD
+  ##############################
+  ## w2
+  dw2 <- (-1) * a1 %*% t(training_y - a2) # Gradient
+  dw2
+  dw2 <- dw2 + regularization_rate*w2
+  w2 <- w2 - learning_rate * dw2 #  Update
+  
+  ## w1
+  dw1 <- (w2 %*% (training_y - a2) * (a1*(1-a1))) %*% t(training_x) # Gradient
+  dw1
+  dw1 <- dw1 + regularization_rate*w1
+  w1 <- w1 - learning_rate * dw1 # Update
+}
 
-dscores <- dscores / batchsize
+################################################################################
+# REPORT
+################################################################################
+# Collect data for report
+# Collect data for report
+report <- data.frame(accuracy = accuracy, epoch = 1:15000, loss = loss)
+report <- report[which((report$epoch %% 100) == 0),] #keep less epoches
 
+# Plot
+ggplot(data = report, mapping = aes(x = epoch)) +
+  geom_path(aes(y = accuracy, colour = "Accuracy")) +
+  geom_point(aes(y = accuracy, colour = "Accuracy"), shape = 21) +
+  xlab("Epoch") + ylab("") +
+  theme(legend.title=element_blank())
 
-dW2 <- t(hidden.layer) %*% dscores 
-db2 <- colSums(dscores)
-
-dhidden <- dscores %*% t(W2)
-dhidden[hidden.layer <= 0] <- 0
-
-dW1 <- t(X) %*% dhidden
-db1 <- colSums(dhidden) 
-
-# update ....
-dW2 <- dW2 + reg*W2
-dW1 <- dW1  + reg*W1
-
-W1 <- W1 - lr * dW1
-b1 <- b1 - lr * db1
-
-W2 <- W2 - lr * dW2
-b2 <- b2 - lr * db2
-
-# final results
-# creat list to store learned parameters
-# you can add more parameters for debug and visualization
-# such as residuals, fitted.values ...
-model <- list( D = D,
-               H = H,
-               K = K,
-               # weights and bias
-               W1= W1, 
-               b1= b1, 
-               W2= W2, 
-               b2= b2)
+# ggsave("figs/iris_accuracy_vs_loss.png")

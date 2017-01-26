@@ -19,6 +19,10 @@ softmax <- function(z) {
   exp_score <- exp(shift_z)
   return (exp_score / sum(exp_score))
 }
+softmax_1 <- function(z) {
+  exp_score <- exp(z*1)
+  return (exp_score / sum(exp_score))
+}
 # Normalise to (0,1)
 range01 <- function(z){
   return ((z - min(z)) / (max(z) - min(z)))
