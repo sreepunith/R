@@ -1,5 +1,10 @@
 # This code is the implementation of using softmax and cross-entropy to perform
 # multi-class classification task on the Iris flower dataset
+# + Structure: 5 input layers (4 inputs + 1 bias), 5 hidden layers, 3 outputs
+# + Activation function: the output layer uses softmax function to output posterior 
+# probabilities, while the hidden layer uses sigmoid function
+# + Cost function: The cost function is cross-entropy
+# + Regularaisation: L2 regularisation
 ################################################################################
 # LOAD LIBRARY
 ################################################################################
@@ -44,13 +49,11 @@ summary(dt)
 ################################################################################
 # TRAINING WITH L2 REGULARIZATION
 ################################################################################
-set.seed(345678)
-
 l2_softmax_training <- function(x_idx, #column indexes of input vectors 
                                 y_idx, #column indexes of output vectors
                                 data = NULL,
-                                training_percent = 0.7, #portion of data for training
-                                learning_rate = 1e-1, #learning rate
+                                training_percent = 0.8, #portion of data for training
+                                learning_rate = 1e-3, #learning rate
                                 regularization_rate = 1e-12, #regularisation rate
                                 iters = 5000 # number of iterations
                                 ) {
@@ -63,8 +66,6 @@ l2_softmax_training <- function(x_idx, #column indexes of input vectors
   data <- data[smpl,]
   
   # Input and output
-  y <- data[, y_idx]
-  
   ## Input
   x <- data[, x_idx]
   x <- unname(data.matrix(data[x_idx]))
@@ -73,11 +74,12 @@ l2_softmax_training <- function(x_idx, #column indexes of input vectors
   x <- apply(x, 2, range01) #data normalisation
   
   ## Output
+  y <- data[, y_idx]
   classes <- sort(unique(data[,y_idx]))
   for(level in classes){ # Generate dummy columns
     data[paste("class", level, sep = "")] <- ifelse(data[, y_idx] == level, 1, 0)
   }
-  y <- data[, -(1:y_idx)] # Get the last dummy columns
+  y <- data[, -(1:y_idx)] # Get dummy columns
   y <- unname(data.matrix(y)) # Convert to matrix
   y <- t(y) # Return to column vector form
   
@@ -87,12 +89,12 @@ l2_softmax_training <- function(x_idx, #column indexes of input vectors
   
   # Training data
   training_x <- x[, 1:training_size]
-  training_y <- y[1:training_size] #output training 3x120
+  training_y <- y[, 1:training_size] #output training 3x120
   y_single <- data[,y_idx][1:training_size] #output training 1x120
   
   # Testing data
   testing_x <- x[, (training_size+1):N] #input testing 5x30
-  desire_result <- data[,y_idx][(training_size+1):N] #output testing 1x30
+  desire_result <- data[, y_idx][(training_size+1):N] #output testing 1x30
   
   ##############################
   # Initial weight matrices 
@@ -153,34 +155,47 @@ l2_softmax_training <- function(x_idx, #column indexes of input vectors
     ## w2
     dw2 <- (-1) * a1 %*% t(training_y - a2) # Gradient
     dw2
-    dw2 <- dw2 + regularization_rate*w2
+    dw2 <- dw2 + regularization_rate*w2 # Add regularisation term
     w2 <- w2 - learning_rate * dw2 #  Update
     
     ## w1
     dw1 <- (w2 %*% (training_y - a2) * (a1*(1-a1))) %*% t(training_x) # Gradient
     dw1
-    dw1 <- dw1 + regularization_rate*w1
+    dw1 <- dw1 + regularization_rate*w1 # Add regularisation term
     w1 <- w1 - learning_rate * dw1 # Update
   }
+  
   return (list(accuracy = accuracy, loss = loss))
 }
-
-result <- l2_softmax_training(x_idx = 1:4, y_idx = 5, data = dt,
-                             training_percent = 0.8,
-                             learning_rate = 1e-3,
-                             regularization_rate = 1e-6,
-                             iters = 7000)
 
 ################################################################################
 # REPORT
 ################################################################################
+set.seed(65432)
+
+# Training
+x_idx = 1:4
+y_idx = 5
+data = dt
+training_percent = 0.8
+learning_rate = 1e-3
+regularization_rate = 1e-12
+iters = 5e4
+
+result <- l2_softmax_training(x_idx = x_idx, y_idx = y_idx, data = data,
+                              training_percent = training_percent,
+                              learning_rate = learning_rate,
+                              regularization_rate = regularization_rate,
+                              iters = iters)
 # Collect data for report
-report <- data.frame(accuracy = result$accuracy, epoch = 1:7000, loss = result$loss)
-report <- report[which((report$epoch %% 100) == 0),] #keep less epoches
+report <- data.frame(accuracy = result$accuracy, epoch = 1:iters, loss = result$loss)
+report <- report[which((report$epoch %% 500) == 0),] #keep less epoches
 
 # Plot
 ggplot(data = report, mapping = aes(x = epoch)) +
   geom_path(aes(y = accuracy, colour = "Accuracy")) +
+  geom_path(aes(y = loss, colour = "Loss")) +
+  geom_point(aes(y = loss, colour = "Loss"), shape = 0) + 
   geom_point(aes(y = accuracy, colour = "Accuracy"), shape = 21) +
   xlab("Epoch") + ylab("") +
   theme(legend.title=element_blank())
