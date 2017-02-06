@@ -1,21 +1,22 @@
 ---
-title: "House prices data munging"
+title: "House Price Dataset Exploration"
 author: "newbiettn"
-date: "17 December 2016"
+date: "3 February 2017"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+##
 
-### Load library
-
-```{r, message=FALSE}
+```{r}
 library(VIM) #aggr
+library(Amelia) #missmap
 ```
 
-### Load data 
+## Data loading
+
 ```{r}
 train_raw <- read.csv("data/train.csv", na.strings = c("NA", ""))
 
@@ -23,8 +24,7 @@ train_raw <- read.csv("data/train.csv", na.strings = c("NA", ""))
 train <- train_raw
 ```
 
-### Change data types properly
-```{r, message=FALSE}
+```
 str(train)
 
 indx <- c("MSSubClass", "OverallQual", "OverallCond", "YearBuilt", "YearRemodAdd",
@@ -33,9 +33,16 @@ indx <- c("MSSubClass", "OverallQual", "OverallCond", "YearBuilt", "YearRemodAdd
 train[indx] <- lapply(train[indx], as.character)
 ```
 
-### Missing data
-```{r, message=FALSE}
+```{r}
 aggr(train, col=c('navyblue','red'), numbers=TRUE, 
                      sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern"))
+
+missmap(train)
+```
+
+Features PoolQC, MiscFeature, Alley, Fence and FireplaceQu have >40% missing, thus, we have to remove all of them.
+
+```{r}
+train[]
 ```

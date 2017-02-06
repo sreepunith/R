@@ -2,7 +2,7 @@
 # LOAD LIBRARY
 ################################################################################
 library(VIM) #aggr
-
+library(Amelia) #missmap
 
 ################################################################################
 # LOAD DATA
@@ -21,14 +21,17 @@ indx <- c("MSSubClass", "OverallQual", "OverallCond", "YearBuilt", "YearRemodAdd
           "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "BedroomAbvGr",
           "KitchenAbvGr", "TotRmsAbvGrd", "Fireplaces")
 train[indx] <- lapply(train[indx], as.character)
+
 ################################################################################
 ### OBSERVE DATA
 ################################################################################
 # Missing data
-png("figs/missing_plot.png", width = 1800, height = 960, res = 140)
 aggr(train, col=c('navyblue','red'), numbers=TRUE, 
                      sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern"))
-# dev.copy(png,filename="figs/missing_plot.png")
-dev.off ()
 
+missmap(train)
+
+summary(train$PoolQC)
+
+train["PoolQC, MiscFeature"] <- NULL
