@@ -42,85 +42,90 @@ dt$Species <- as.factor(dt$Species)
 summary(dt)
 
 ################################################################################
-# TRAINING WITH L2 REGULARIZATION
+# PLOT 
 ################################################################################
+# Box plot of 4 features of the data
+dt_reshaped <- melt(iris, id.var = "Species")
+
+ggplot(data = dt_reshaped, 
+       mapping = aes(x = variable, y = value, fill = Species)) +
+  geom_boxplot() +
+  facet_grid(.~variable, scales="free_x") +
+  xlab("") + ylab("") + ggtitle("Iris flower dataset description") +
+  theme(legend.position="bottom", legend.title=element_blank())
+
+ggsave("figs/iris_features_boxplot.png")
+################################################################################
+# BACKPROPAGATION
+################################################################################
+##############################
+# INITIALISATION
+##############################
 set.seed(65432)
-x_idx = 1:4
-y_idx = 5
-data = dt
-training_percent = 0.8
-learning_rate = 1e-2
-regularization_rate = 1000
-iters = 1e1
 
-N <- nrow(data)
-##############################
-# Data spliting
-##############################
 # Shuffle the data
-smpl <- sample(1:N, N) 
-data <- data[smpl,]
+rand <- sample(1:nrow(dt), nrow(dt))
+dt <- dt[rand,]
 
-# Input and output
-## Input
-x <- data[, x_idx]
-x <- unname(data.matrix(data[x_idx]))
-x <- cbind(1, x) # Add bias
-x <- t(x) # Return to column vector form
-x <- apply(x, 2, range01) #data normalisation
-
-## Output
-y <- data[, y_idx]
-classes <- sort(unique(data[,y_idx]))
-for(level in classes){ # Generate dummy columns
-  data[paste("class", level, sep = "")] <- ifelse(data[, y_idx] == level, 1, 0)
-}
-y <- data[, -(1:y_idx)] # Get dummy columns
-y <- unname(data.matrix(y)) # Convert to matrix
-y <- t(y) # Return to column vector form
-
-# Split data for testing and training
-training_size <- N*training_percent
-testing_size <- N - training_size
-
-# Training data
-training_x <- x[, 1:training_size]
-training_y <- y[, 1:training_size] #output training 3x120
-y_single <- data[,y_idx][1:training_size] #output training 1x120
-
-# Testing data
-testing_x <- x[, (training_size+1):N] #input testing 5x30
-desire_result <- data[, y_idx][(training_size+1):N] #output testing 1x30
-
-##############################
 # Initial weight matrices 
-##############################
 w1 <- matrix(rnorm(25, mean = 1, sd = 1), nrow = 5, ncol = 5)
 w2 <- matrix(rnorm(15, mean = 1, sd = 1), nrow = 5, ncol = 3)
 
+# Indices
+N <- nrow(dt)
+x_idx <- 1:4
+y_idx <- 5
+
+# Input
+x <- unname(data.matrix(dt[x_idx]))
+x <- cbind(1, x) # Add bias
+x <- t(x) # Return to column vector form
+
+# Output
+classes <- sort(unique(dt[,y_idx]))
+for(level in classes){ # Generate dummy columns
+  dt[paste("class", level, sep = "")] <- ifelse(dt[, y_idx] == level, 1, 0)
+}
+y <- dt[, -(1:y_idx)] # Get the last dummy columns
+y <- unname(data.matrix(y)) # Convert to matrix
+y <- t(y) # Return to column vector form
+
+# Misc
+learning_rate <- 1e-3 #learning rate
+reg_rate <- 1e-12 #regularization rate
+epoches <- 1e4 #the number of epoches
+
+##############################
+# DATA NORMALISATION
+##############################
+x <- apply(x, 2, range01)
+
+##############################
+# DATA SPLITING
+##############################
+# Split data for testing and training
+training_size <- 120 # testing size
+samp <- sample(1:training_size, training_size)
+
+# Training data
+training_x <- x[, samp] #input training 5x120
+training_y <- y[, samp] #output training 3x120
+y_single <- dt[,y_idx][samp] #output training 1x120
+
+# Testing data
+testing_x <- x[, -samp] #input testing 5x30
+desire_result <- dt$Species[-samp] #output testing 1x30
+
+##############################
+# TRAINING
 ##############################
 # Store logs for reporting
-##############################
-training_accuracy <- numeric() #accuracy of training dataset
-testing_accuracy <- numeric() #accuracy of testing dataset 
+accuracy <- numeric() #accuracy 
 loss <- numeric() #loss
 
-for (j in 1:iters) {
+for (j in 1:epoches) {
   ##############################
-  # Shuffle data for every epoch
-  ##############################
-  smpl_training <- sample(1:training_size, training_size)
-  smpl_testing <- sample(1:testing_size, testing_size)
-  
-  training_x <- training_x[, smpl_training]
-  training_y <- training_y[, smpl_training]
-  y_single <- y_single[smpl_training]
-  
-  testing_x <- testing_x[, smpl_testing]
-  desire_result <- desire_result[smpl_testing]
-  
-  ##############################
-  # Forward
+  # FORWARD
   ##############################
   ## Hidden layer
   s1 <- t(w1) %*% training_x
@@ -138,14 +143,11 @@ for (j in 1:iters) {
   matching_probs <- sapply(1:ncol(a2), function(i) return (a2[y_single[i], i]))
   log_prob <- -log(matching_probs)
   cross_entropy_loss  <- sum(log_prob)/training_size
-  reg_loss <- 0.5*regularization_rate* (sum(w1*w1) + sum(w2*w2))
+  reg_loss <- 0.5*reg_rate* (sum(w1*w1) + sum(w2*w2))
   loss <- c(loss, cross_entropy_loss + reg_loss)
   
-  ## Accuracy 
-  pred1 <- max.col(t(a2))
-  training_accuracy <- c(training_accuracy, (mean(as.integer(y_single) == pred1)))
   ##############################
-  # Tesing
+  # TESTING
   ##############################
   # Hidden layer
   s1_test <- t(w1) %*% testing_x
@@ -160,47 +162,38 @@ for (j in 1:iters) {
   a2_test
   
   # Result
-  pred2 <- max.col(t(a2_test))
-  testing_accuracy <- c(testing_accuracy, (mean(as.integer(desire_result) == pred2)))
+  result <- max.col(t(a2_test))
+  accuracy <- c(accuracy, (mean(as.integer(desire_result) == result)))
+  
   ##############################
   # BACKWARD
   ##############################
   ## w2
   dw2 <- (-1) * a1 %*% t(training_y - a2) # Gradient
   dw2
-  dw2 <- dw2 + regularization_rate*w2 # Add regularisation term
+  dw2 <- dw2 + reg_rate*w2
   w2 <- w2 - learning_rate * dw2 #  Update
   
   ## w1
   dw1 <- (w2 %*% (training_y - a2) * (a1*(1-a1))) %*% t(training_x) # Gradient
   dw1
-  dw1 <- dw1 + regularization_rate*w1 # Add regularisation term
+  dw1 <- dw1 + reg_rate*w1
   w1 <- w1 - learning_rate * dw1 # Update
 }
-
 ################################################################################
 # REPORT
 ################################################################################
 # Collect data for report
-report <- data.frame(training_accuracy = training_accuracy, 
-                     testing_accuracy = testing_accuracy, 
-                     epoch = 1:iters, 
-                     loss = loss)
-report <- report[which((report$epoch %% 400) == 0),] #keep less epoches
+report <- data.frame(accuracy = accuracy, epoch = 1:epoches, loss = loss)
+report <- report[which((report$epoch %% 200) == 0),] #keep less epoches
 
 # Plot
 ggplot(data = report, mapping = aes(x = epoch)) +
-  geom_path(aes(y = training_accuracy, colour = "Training")) +
-  geom_path(aes(y = testing_accuracy, colour = "Testing")) +
-  geom_point(aes(y = training_accuracy, colour = "Training"), shape = 0) + 
-  geom_point(aes(y = testing_accuracy, colour = "Testing"), shape = 21) +
-  xlab("Epoch") + ylab("") +
-  theme(legend.title=element_blank())
-
-ggplot(data = report, mapping = aes(x = epoch)) +
+  geom_path(aes(y = accuracy, colour = "Accuracy")) +
   geom_path(aes(y = loss, colour = "Loss")) +
   geom_point(aes(y = loss, colour = "Loss"), shape = 0) + 
+  geom_point(aes(y = accuracy, colour = "Accuracy"), shape = 21) +
   xlab("Epoch") + ylab("") +
   theme(legend.title=element_blank())
 
-# ggsave("figs/overfit_checking_2.png")
+ggsave("figs/iris_accuracy_vs_loss.png")

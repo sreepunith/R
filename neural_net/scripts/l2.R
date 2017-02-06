@@ -40,18 +40,18 @@ dt$Species[which(dt$Species =="setosa")] <- 1
 dt$Species[which(dt$Species =="versicolor")] <- 2
 dt$Species[which(dt$Species =="virginica")] <- 3
 dt$Species <- as.factor(dt$Species)
-summary(dt) 
+summary(dt)
 ################################################################################
 # BACKPROPAGATION ALGORITHM IMPLEMENTATION
 ################################################################################
 set.seed(65432)
 
-l2_softmax_training <- function(x_idx, #column indexes of input vectors 
+nn_training <- function(x_idx, #column indexes of input vectors 
                                 y_idx, #column indexes of output vectors
                                 data = NULL,
                                 training_percent = 0.8, #portion of data for training
                                 learning_rate = 1e-3, #learning rate
-                                regularization_rate = 1e-12, #regularisation rate
+                                regularization_rate = NULL, #a vector of regularisation rates
                                 iters = 5000 # number of iterations
                                 ) {
   N <- nrow(data)
@@ -193,15 +193,14 @@ y_idx = 5
 data = dt
 training_percent = 0.8
 learning_rate = 1e-3
-regularization_rate = 1e-15
-iters = 4e5
+regularization_rate = seq(-10, 10, 1)
+iters = 4e4
 
-pred <- l2_softmax_training(x_idx = x_idx, y_idx = y_idx, data = data,
-                              training_percent = training_percent,
-                              learning_rate = learning_rate,
-                              regularization_rate = regularization_rate,
-                              iters = iters)
-
+pred <- nn_training(x_idx = x_idx, y_idx = y_idx, data = data,
+                            training_percent = training_percent,
+                            learning_rate = learning_rate,
+                            regularization_rate = regularization_rate,
+                            iters = iters)
 # Collect data for report
 report <- data.frame(training_accuracy = pred$training_accuracy,
                      testing_accuracy = pred$testing_accuracy,
