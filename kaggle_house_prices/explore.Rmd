@@ -44,5 +44,5 @@ missmap(train)
 Features PoolQC, MiscFeature, Alley, Fence and FireplaceQu have >40% missing, thus, we have to remove all of them.
 
 ```{r}
-train[]
+train[, c("PoolQC", "MiscFeature", "Alley", "Fence", "FireplaceQu")] <- NULL
 ```

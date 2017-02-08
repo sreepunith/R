@@ -3,7 +3,7 @@
 ################################################################################
 library(VIM) #aggr
 library(Amelia) #missmap
-
+library(mice)
 ################################################################################
 # LOAD DATA
 ################################################################################
@@ -32,6 +32,13 @@ aggr(train, col=c('navyblue','red'), numbers=TRUE,
 
 missmap(train)
 
-summary(train$PoolQC)
+# Temporarily remove features with missing values
+idx <- apply(train, 2, function(x) any(is.na(x))) #Check NAs by columns
+train <- train[, which(idx == F)] #Remove columns has NAs
 
-train["PoolQC, MiscFeature"] <- NULL
+# Check again
+missmap(train)
+################################################################################
+### IMPUTATION
+################################################################################
+pairs(train, pch = 21)
