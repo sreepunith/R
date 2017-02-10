@@ -108,5 +108,31 @@ names(ct_table) <- c("Title", "Survived", "Quantity")
 ggplot(data = ct_table, 
        mapping = aes(x = Survived, y = Quantity, fill = Title)) +
   geom_bar(stat = "identity")
+################################################################################
+### NORMALITY CHECK
+################################################################################
+train$Age[which(is.na(train$Age))] <- median(train$Age, na.rm = TRUE)
 
+ggplot(data = train, mapping = aes(x = Age)) +
+  geom_bar(stat = "count")
 
+qqnorm(train$Age)
+qqline(train$Age)
+
+box_cox_trans <- function(x, lambda) {
+  return ((x^lambda - 1)/lambda)
+}
+
+age_bc <- box_cox_trans(train$Age, 0.8)
+age_log <- log10(train$Age)
+age_reci <- 1/train$Age
+
+hist(age_reci)
+hist(age_log)
+qqnorm(age_bc)
+hist(age_bc)
+hist(train$Age)
+qqline(age_bc)
+
+library(AID)
+boxcoxnc(train$Age)
