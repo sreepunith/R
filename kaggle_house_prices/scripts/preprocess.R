@@ -4,9 +4,15 @@
 source("scripts/explore.R")
 
 ################################################################################
-# LOAD LIBRARY
+# SEPARATE CATEGORIAL AND NUMERICAL COLUMNS
 ################################################################################
-library(MVN) # normality testing
-library(dummies) # create dummies columns
-library(caret) # neural net
+num_cols <- train[, sapply(train, is.numeric)]
+cat_cols <- train[, sapply(train, is.factor)]
+
+################################################################################
+# STANDARDIZE DATA
+################################################################################
+num_cols <- scale(num_cols, center = T, # subtract mean
+                  scale = T #divide by z
+                  )
 

@@ -170,11 +170,5 @@ missmap(train)
 ### IMPUTATION
 ################################################################################
 # Temporarily remove features with missing values
-idx <- apply(train, 2, function(x) any(is.na(x))) #Check NAs by columns
-train <- train[, which(idx == F)] #Remove columns has NAs
-
-# Check again
-missmap(train)
-
-
+train <- na.omit(train)
 
