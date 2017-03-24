@@ -39,3 +39,21 @@ g + annotate("text", x=0.75, y=0.25, label=paste("AUC =", round((calc_auc(g))$AU
 # pred <- prediction(output$predictions, output$labels)
 # perf <- performance(pred, "tpr", "fpr")
 # plot(perf, avg = "vertical", spread.estimate = "boxplot", lwd = 3, lty = 3)
+
+# auc <- roc(testing$Origin[], as.numeric(pred))
+# plot(roc)
+# roc_dt <- nn_fit$pred[nn_fit$pred, ]
+# 
+# g <- ggplot(roc_dt, aes(m = Alaskan, d = factor(obs, levels = c("Canadian", "Alaskan")))) + 
+#   geom_roc(n.cuts = 20) +
+#   coord_equal() +
+#   style_roc()
+# 
+# g + annotate("text", x = 0.75, y = 0.25, label = paste("AUC =", round((calc_auc(g))$AUC, 4)))
+# 
+# D.ex <- rbinom(50, 1, .5)
+# rocdata <- data.frame(D = c(D.ex, D.ex), 
+#                       M = c(rnorm(50, mean = D.ex, sd = .4), rnorm(50, mean = D.ex, sd = 1)), 
+#                       Z = c(rep("A", 50), rep("B", 50)))
+# 
+# ggplot(rocdata, aes(m = M, d = D), color = Z) + geom_roc()

@@ -56,29 +56,37 @@ summary(testing)
 set.seed(123)
 
 # train control
-fitControl <- trainControl(method="cv", classProbs=T, savePredictions = T)
+fitControl <- trainControl(method="repeatedcv", number = 5, repeats = 10,
+                           classProbs=T, savePredictions = T)
 
 # Model
 nn_fit <- train(Origin ~ ., 
                 data = training,
                 method = "mlp",
                 trControl = fitControl)
-pred <- predict(nn_fit, newdata = testing)
 
-# auc <- roc(testing$Origin[], as.numeric(pred))
-# plot(roc)
-roc_dt <- nn_fit$pred[nn_fit$pred, ]
+filtered_output <- nn_fit$pred[nn_fit$pred$size == 3,]
 
-g <- ggplot(roc_dt, aes(m = Alaskan, d = factor(obs, levels = c("Canadian", "Alaskan")))) + 
-  geom_roc(n.cuts = 20) + 
-  coord_equal() +
-  style_roc()
+filtered_output$pred <- as.character(filtered_output$pred)
+filtered_output$obs <- as.character(filtered_output$obs)
 
-g + annotate("text", x = 0.75, y = 0.25, label = paste("AUC =", round((calc_auc(g))$AUC, 4)))
+filtered_output$pred[filtered_output$pred == "Alaskan"] <- 1
+filtered_output$pred[filtered_output$pred == "Canadian"] <- 0
+filtered_output$obs[filtered_output$obs == "Alaskan"] <- 1
+filtered_output$obs[filtered_output$obs == "Canadian"] <- 0
 
-D.ex <- rbinom(50, 1, .5)
-rocdata <- data.frame(D = c(D.ex, D.ex), 
-                      M = c(rnorm(50, mean = D.ex, sd = .4), rnorm(50, mean = D.ex, sd = 1)), 
-                      Z = c(rep("A", 50), rep("B", 50)))
+filtered_output$pred <- as.factor(filtered_output$pred)
+filtered_output$obs <- as.factor(filtered_output$obs)
 
-ggplot(rocdata, aes(m = M, d = D), color = Z) + geom_roc()
+roc_dt <- list()
+k <- 1
+for (resample in unique(filtered_output$Resample)) {
+  roc_dt$predictions[[k]] <- apply(filtered_output[filtered_output$Resample == resample, 3:4], 1, max)
+  roc_dt$labels[[k]] <- filtered_output$obs[filtered_output$Resample == resample]
+  k <- k + 1
+}
+
+pred <- prediction(roc_dt$predictions, roc_dt$labels)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf, avg = "vertical", spread.estimate = "stderror", lwd = 1, lty = 3)
+
