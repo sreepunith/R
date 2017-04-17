@@ -1,5 +1,6 @@
 # PURPOSE: This is an experiment of comparing 2 classifiers on a single domain
 # DATASET: Wisconsin Breast Cancer Database
+# ALGORITHMS: CART, NN
 ################################################################################
 # Loading library
 ################################################################################
