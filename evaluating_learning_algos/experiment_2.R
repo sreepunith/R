@@ -1,7 +1,8 @@
 # PURPOSE: This is an experiment of comparing 2 classifiers on a single domain
 # DATASET: Wisconsin Breast Cancer Database
 # ALGORITHMS: CART, NN
-# ERROR ESTIMATION: 10-fold
+# ERROR ESTIMATION: 5x2-fold
+# SIGNIFICANCE STAT TESTS: t-test, Wilcoxon's signed-rank test
 ################################################################################
 # Loading library
 ################################################################################
@@ -35,12 +36,12 @@ missmap(dt)
 set.seed(123)
 
 # Split data
-inTraining <- createDataPartition(dt$Class, p = .75, list = FALSE)
+inTraining <- createDataPartition(dt$Class, p = .80, list = FALSE)
 training <- dt[inTraining,]
 testing  <- dt[-inTraining,]
 
 # Train control
-fitControl <- trainControl(method="cv", number = 10,
+fitControl <- trainControl(method="repeatedcv", number = 2, repeats = 5,
                            classProbs=T, savePredictions = T)
 
 # Model of NN

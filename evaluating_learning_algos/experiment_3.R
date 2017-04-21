@@ -1,7 +1,8 @@
 # PURPOSE: This is an experiment of comparing 2 classifiers on a single domain
-# DATASET: Wisconsin Breast Cancer Database
+# DATASET: Iris
 # ALGORITHMS: CART, NN
-# ERROR ESTIMATION: 10-fold
+# ERROR ESTIMATION: 5x2-fold
+# SIGNIFICANCE STAT TESTS: t-test, Wilcoxon's signed-rank test
 ################################################################################
 # Loading library
 ################################################################################
@@ -13,8 +14,8 @@ library(pROC)
 ################################################################################
 # Loading data
 ################################################################################
-data(BreastCancer)
-dt_raw <- BreastCancer
+data(iris)
+dt_raw <- iris
 dt <- dt_raw
 
 ################################################################################
@@ -22,35 +23,29 @@ dt <- dt_raw
 ################################################################################
 str(dt)
 
-# Imputation
-set.seed(123)
-
-imp <- mice(dt[,-1], m = 1)
-dt <- complete(imp, 1) # Extract the 1st version of the imputed data using complete()
 missmap(dt)
-
 ################################################################################
 # Modeling
 ################################################################################
 set.seed(123)
 
 # Split data
-inTraining <- createDataPartition(dt$Class, p = .75, list = FALSE)
+inTraining <- createDataPartition(dt$Species, p = .80, list = FALSE)
 training <- dt[inTraining,]
 testing  <- dt[-inTraining,]
 
 # Train control
-fitControl <- trainControl(method="cv", number = 10,
+fitControl <- trainControl(method="repeatedcv", number = 2, repeats = 5,
                            classProbs=T, savePredictions = T)
 
 # Model of NN
-nn_fit <- train(Class ~ ., 
+nn_fit <- train(Species ~ ., 
                 data = training,
                 method = "mlp",
                 trControl = fitControl)
 
 # Model of CART
-cart_fit <- train(Class ~ .,
+cart_fit <- train(Species ~ .,
                   data = training,
                   method = "rpart",
                   trControl = fitControl)
@@ -62,12 +57,12 @@ plot(nn_fit)
 ################################################################################
 # Prediction with NN
 pred <- predict(nn_fit, newdata = testing)
-error <- mean(pred != testing$Class)
+error <- mean(pred != testing$Species)
 print(paste("Accuracy ", 1 - error))
 
 # Prediction with CART
 pred <- predict(cart_fit, newdata = testing)
-error <- mean(pred != testing$Class)
+error <- mean(pred != testing$Species)
 print(paste("Accuracy ", 1 - error))
 ################################################################################
 # Extracting results of each folds
@@ -95,35 +90,11 @@ accuracy_by_fold <- function(fit_fold_result) {
 nn_accuracy_by_fold <- accuracy_by_fold(nn_fold_result)
 cart_accuracy_by_fold <- accuracy_by_fold(cart_fold_result)
 
-# Extracting correctly classified and incorrectly classified by models to build 
-# a McNemar's 2x2 contigency table
-get_correctly_classified_item <- function(fit_fold_result){
-  return (fit_fold_result$rowIndex[fit_fold_result$pred == fit_fold_result$obs])
-}
-get_incorrectly_classified_item <- function(fit_fold_result){
-  return (fit_fold_result$rowIndex[fit_fold_result$pred != fit_fold_result$obs])
-}
-
-nn_correct <- get_correctly_classified_item(nn_fold_result)
-cart_correct <- get_correctly_classified_item(cart_fold_result)
-
-nn_incorrect <- get_incorrectly_classified_item(nn_fold_result)
-cart_incorrect <- get_incorrectly_classified_item(cart_fold_result)
-
-c00 <- length(intersect(nn_incorrect, cart_incorrect))
-c01 <- length(intersect(nn_incorrect, cart_correct))
-c10 <- length(intersect(cart_incorrect, nn_correct))
-c11 <- length(intersect(nn_correct, cart_correct))
-
-mcnemar_mtrx <- matrix(c(c00, c01, c10, c11), byrow = T, nrow = 2, ncol = 2)
-colnames(mcnemar_mtrx) <- c("No", "Yes")
-rownames(mcnemar_mtrx) <- c("No", "Yes")
-mcnemar_tbl <- as.table(mcnemar_mtrx)
 ################################################################################
 # Performance measures
 ################################################################################
-rocobj_1 <- roc(obs ~ malignant, nn_fold_result, ret = c("tp", "fp"))
-rocobj_2 <- roc(obs ~ malignant, cart_fold_result, ret = c("tp", "fp"))
+rocobj_1 <- roc(obs ~ virginica, nn_fold_result, ret = c("tp", "fp"))
+rocobj_2 <- roc(obs ~ virginica, cart_fold_result, ret = c("tp", "fp"))
 plot(rocobj_1, print.thres="best", col = "blue", print.auc=TRUE)
 plot(rocobj_2, print.thres="best", col = "red", add=TRUE)
 legend("bottomright", legend=c("NN", "CART"),
@@ -134,9 +105,6 @@ legend("bottomright", legend=c("NN", "CART"),
 ################################################################################
 # Paired t-test
 t.test(nn_accuracy_by_fold, cart_accuracy_by_fold, paired = T)
-
-# McNemar's test
-mcnemar.test(mcnemar_tbl, correct = F)
 
 # Wilcoxon's signed-rank test
 wilcox.test(nn_accuracy_by_fold, cart_accuracy_by_fold, paired = T, alternative = "two.sided", correct = F)
