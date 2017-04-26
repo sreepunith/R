@@ -93,8 +93,8 @@ cart_accuracy_by_fold <- accuracy_by_fold(cart_fold_result)
 ################################################################################
 # Performance measures
 ################################################################################
-rocobj_1 <- roc(obs ~ virginica, nn_fold_result, ret = c("tp", "fp"))
-rocobj_2 <- roc(obs ~ virginica, cart_fold_result, ret = c("tp", "fp"))
+rocobj_1 <- roc(obs ~ setosa, nn_fold_result, ret = c("tp", "fp"))
+rocobj_2 <- roc(obs ~ setosa, cart_fold_result, ret = c("tp", "fp"))
 plot(rocobj_1, print.thres="best", col = "blue", print.auc=TRUE)
 plot(rocobj_2, print.thres="best", col = "red", add=TRUE)
 legend("bottomright", legend=c("NN", "CART"),
