@@ -19,27 +19,34 @@ set.seed(123)
 train_raw <- read.csv("data/train.csv", na.strings = c("NA", ""))
 train <- train_raw
 
+test_raw <- read.csv("data/test.csv", na.strings = c("NA", ""))
+test <- test_raw #backup
+
 ################################################################################
-# Preprocessing
+# Preprocessing (both train and test data at the same time)
 ################################################################################
+# Combind train and test
+train$Survived <- NULL #temporarily remove Survived from train
+combined_dt <- rbind(train, test)
+
 # Identify missing values
 # Fare == 0 doesnt make sense, thus should be missing values
-train$Fare[which(train$Fare == 0)] <- NA
+combined_dt$Fare[which(train$Fare == 0)] <- NA
 
 # More than 70% of Cabin is missing, thus we have to remove
-train$Cabin <- NULL
+combined_dt$Cabin <- NULL
 
 # Ticket makes no sense
-train$Ticket <- NULL
+combined_dt$Ticket <- NULL
 
 # Observe the missing data again
-missing_plot <- aggr(train, col=c('navyblue','red'), numbers=TRUE, 
+missing_plot <- aggr(combined_dt, col=c('navyblue','red'), numbers=TRUE, 
                      sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern"))
 
 # Impute Embarked
-train$Embarked[which(is.na(train$Embarked))] <- "S"
-missing_plot <- aggr(train, col=c('navyblue','red'), numbers=TRUE, 
+combined_dt$Embarked[which(is.na(combined_dt$Embarked))] <- "S"
+missing_plot <- aggr(combined_dt, col=c('navyblue','red'), numbers=TRUE, 
                      sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern"))
 
@@ -50,57 +57,61 @@ get_title_from_name <- function(x) {
   return (substr(x, index_of_comma + 2, index_of_dot - 1))
 }
 
-train["Title"] <- get_title_from_name(train$Name)
-train$Title <- as.factor(train$Title)
-summary(train$Title)
+combined_dt["Title"] <- get_title_from_name(combined_dt$Name)
+combined_dt$Title <- as.factor(combined_dt$Title)
+summary(combined_dt$Title)
 
 # Impute age & fare
-imp <- mice(train[, -c(1, 2, 4)], maxit = 20, m = 6)
-train_imp <- complete(imp, "long", inc = TRUE)
+imp <- mice(combined_dt[, -c(1, 3)], maxit = 20, m = 6)
+combined_dt_imp <- complete(imp, "long", inc = TRUE)
 
 col <- rep(c("blue", "red")[1+as.numeric(is.na(imp$data$Age))], 6)
-stripplot(Age~.imp, data = train_imp, jit = TRUE, fac = 0.8, col = col, 
+stripplot(Age~.imp, data = combined_dt_imp, jit = TRUE, fac = 0.8, col = col, 
           xlab = "Imputation Number") #explore the distribution of each imputed version
 
-train <- complete(imp, 1) # select the 1st imputed version
-
-missing_plot <- aggr(train, col=c('navyblue','red'), numbers=TRUE, 
-                     sortVars=TRUE, labels=names(train), cex.axis=.7, gap=3, 
+combined_dt <- complete(imp, 1) # select the 1st imputed version
+missing_plot <- aggr(combined_dt, col=c('navyblue','red'), numbers=TRUE, 
+                     sortVars=TRUE, labels=names(combined_dt), cex.axis=.7, gap=3, 
                      ylab=c("Histogram of missing data","Pattern")) #observe missing data again
 
 # Too many factors in Title, we need to merge them
-train$Title <- as.character(train$Title) 
-train$Title[which(train$Title == "Capt")] <- "Miltary"
-train$Title[which(train$Title == "Col")] <- "Miltary"
-train$Title[which(train$Title == "Major")] <- "Miltary"
+combined_dt$Title <- as.character(combined_dt$Title) 
+combined_dt$Title[which(combined_dt$Title == "Capt")] <- "Miltary"
+combined_dt$Title[which(combined_dt$Title == "Col")] <- "Miltary"
+combined_dt$Title[which(combined_dt$Title == "Major")] <- "Miltary"
 
-train$Title[which(train$Title == "Don")] <- "Men_Honorable"
-train$Title[which(train$Title == "Dr")] <- "Men_Honorable"
-train$Title[which(train$Title == "Jonkheer")] <- "Men_Honorable"
-train$Title[which(train$Title == "Rev")] <- "Men_Honorable"
-train$Title[which(train$Title == "Sir")] <- "Men_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Don")] <- "Men_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Dr")] <- "Men_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Jonkheer")] <- "Men_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Rev")] <- "Men_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Sir")] <- "Men_Honorable"
 
-train$Title[which(train$Title == "Mme")] <- "Mr"
+combined_dt$Title[which(combined_dt$Title == "Mme")] <- "Mr"
 
-train$Title[which(train$Title == "Lady")] <- "Women_Honorable"
-train$Title[which(train$Title == "Rothes, the Countess")] <- "Women_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Lady")] <- "Women_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Rothes, the Countess")] <- "Women_Honorable"
+combined_dt$Title[which(combined_dt$Title == "Dona")] <- "Women_Honorable"
 
-train$Title[which(train$Title == "Ms")] <- "Miss"
-train$Title[which(train$Title == "Mlle")] <- "Miss"
+combined_dt$Title[which(combined_dt$Title == "Ms")] <- "Miss"
+combined_dt$Title[which(combined_dt$Title == "Mlle")] <- "Miss"
 
-train$Title <- as.factor(train$Title) 
-summary(train$Title)
+combined_dt$Title <- as.factor(combined_dt$Title) 
+summary(combined_dt$Title)
 
+# Scale and center
+combined_dt$Fare <- scale(combined_dt$Fare, scale = T, center = T)
+combined_dt$Age <- scale(combined_dt$Age, scale = T, center = T)
+
+# Correlation checking
+correlations <- cor(combined_dt[, c("Age", "SibSp", "Parch", "Fare")])
+corrplot(correlations, order = "hclust")
+
+# After preprocessing both, separate the data back to train and test
+train <- combined_dt[1:nrow(train),]
 train["Survived"] <- train_raw$Survived #add reponse variable back after imputation
 train$Survived <- as.factor(train$Survived)
 
-# Correlation checking
-correlations <- cor(train[, c("Age", "SibSp", "Parch", "Fare")])
-corrplot(correlations, order = "hclust")
-
-# Scale and center
-train$Fare <- scale(train$Fare, scale = T, center = T)
-train$Age <- scale(train$Age, scale = T, center = T)
+test <- combined_dt[(nrow(train)+1):nrow(combined_dt), ]
 
 # Data type checking finally
 levels <- unique(train$Survived)
@@ -217,10 +228,10 @@ pred <- predict(model_1, newdata = testing, type = "prob")
 # Use ROC to find the best cut-off point
 dt <- data.frame(X1 = pred$X1, obs = testing$Survived)
 rocobj <- roc(obs ~ X1, dt, ret = c("tp", "fp"))
-plot(rocobj, print.thres="best", col = "blue", print.auc=TRUE) #0.210
+plot(rocobj, print.thres="best", col = "blue", print.auc=TRUE) #0.306
 
 # Testing
-testing_survived <- ifelse(pred$X1 > 0.210, "X1", "X0")
+testing_survived <- ifelse(pred$X1 > 0.306, "X1", "X0")
 error <- mean(testing_survived != testing$Survived)
 print(paste("Accuracy ", 1 - error))
 ################################################################################
@@ -231,3 +242,20 @@ model_2 <- train(Survived ~ .,
                      method = "parRF",
                      tuneGrid = grid_1,
                      trControl = fit_control_1)
+
+################################################################################
+# Predict
+################################################################################
+# Generate probabilities for test set
+test_prediction <- predict(model_2, newdata = test, type = "prob")
+survived <- ifelse(test_prediction$X1 > 0.306, "1", "0")
+survived <- as.factor(survived)
+
+# Attach prediction results to test set
+test["Survived"] <- survived
+test["PassengerId"] <- test_raw$PassengerId
+
+# Create submission file
+test_submit <- test[c("PassengerId", "Survived")]
+write.csv(test_submit, "results/randomforest_test_result.csv", 
+          quote = F, row.names=F)
