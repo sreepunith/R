@@ -136,3 +136,10 @@ qqline(age_bc)
 
 library(AID)
 boxcoxnc(train$Age)
+
+make_unit <- function(x) {x / sqrt(sum(x^2))}
+z <- c(1,2,3)
+make_unit(z)
+x <- c(0,0,1)
+
+Q <- matrix(c(x,y,z), nrow = 3, byrow = FALSE)
