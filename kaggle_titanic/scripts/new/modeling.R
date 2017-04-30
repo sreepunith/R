@@ -2,7 +2,7 @@
 # survivors of Titanic accident by using 3 learning algorithms Neural Networks 
 # (NN), CART, Random Forest (RF)
 # Algorithms: NN, CART, RF
-# Evaluation method: Accuracy, ROC, Statistical tests (Wilcoxon's signed-rank)
+# Evaluation method: Accuracy, ROC, Statistical tests (Wilcoxon's signed-rank).
 ################################################################################
 # Load libraries
 ################################################################################
@@ -102,10 +102,6 @@ summary(combined_dt$Title)
 combined_dt$Fare <- scale(combined_dt$Fare, scale = T, center = T)
 combined_dt$Age <- scale(combined_dt$Age, scale = T, center = T)
 
-# Correlation checking
-correlations <- cor(combined_dt[, c("Age", "SibSp", "Parch", "Fare")])
-corrplot(correlations, order = "hclust")
-
 # After preprocessing both, separate the data back to train and test
 train <- combined_dt[1:nrow(train),]
 train["Survived"] <- train_raw$Survived #add reponse variable back after imputation
@@ -113,10 +109,85 @@ train$Survived <- as.factor(train$Survived)
 
 test <- combined_dt[(nrow(train)+1):nrow(combined_dt), ]
 
-# Data type checking finally
-levels <- unique(train$Survived)
-train$Survived <- factor(as.character(train$Survived), labels = make.names(levels))
-summary(train)
+# Survived
+train$Survived <- factor(train$Survived, labels = make.names(unique(train$Survived)))
+# Create dummy variables for correlation testing
+for(level in unique(train$SibSp)) { #SibSp
+  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
+}
+
+for(level in unique(train$Parch)) { #Parch
+  train[paste("Parch", level, sep = "_")] <- ifelse(train$Parch == level, 1, 0)
+}
+
+for(level in unique(train$Embarked)) { #Embarked
+  train[paste("Embarked", level, sep = "_")] <- ifelse(train$Embarked == level, 1, 0)
+}
+
+for(level in unique(train$Title)) { #Embarked
+  train[paste("Title", level, sep = "_")] <- ifelse(train$Title == level, 1, 0)
+}
+
+# Fare
+train$Fare_factor <- as.factor(findInterval(train$Fare, c(32)))
+
+for(level in unique(train$Fare_factor)){
+  train[paste("Fare_factor", level, sep = "_")] <- ifelse(train$Fare_factor == level, 1, 0)
+}
+
+# Correlation testing
+chisq.test(train$Parch_0, train$Survived, correct = F) #1.082e-05
+chisq.test(train$Parch_1, train$Survived, correct = F) #6.2e-05
+chisq.test(train$Parch_2, train$Survived, correct = F) #0.02514
+chisq.test(train$Parch_3, train$Survived, correct = F) #0.3189
+chisq.test(train$Parch_4, train$Survived, correct = F) #0.1136
+chisq.test(train$Parch_5, train$Survived, correct = F) #0.3966
+chisq.test(train$Parch_6, train$Survived, correct = F) #0.4297
+
+chisq.test(train$SibSp_0, train$Survived, correct = F) #0.000543
+chisq.test(train$SibSp_1, train$Survived, correct = F) #2.388e-07
+chisq.test(train$SibSp_2, train$Survived, correct = F) #0.3738
+chisq.test(train$SibSp_3, train$Survived, correct = F) #0.2666
+chisq.test(train$SibSp_4, train$Survived, correct = F) #0.05562
+chisq.test(train$SibSp_5, train$Survived, correct = F) #0.07675
+chisq.test(train$SibSp_8, train$Survived, correct = F) #0.03604
+
+chisq.test(train$Embarked_S, train$Survived, correct = F) #7.896e-06
+chisq.test(train$Embarked_C, train$Survived, correct = F) #5.116e-07
+chisq.test(train$Embarked_Q, train$Survived, correct = F) #0.9132
+
+chisq.test(train$Title_Master, train$Survived, correct = F) #0.01097
+chisq.test(train$Title_Men_Honorable, train$Survived, correct = F) #0.2666
+chisq.test(train$Title_Women_Honorable, train$Survived, correct = F) #0.07284
+chisq.test(train$Title_Miltary, train$Survived, correct = F) #0.9406
+chisq.test(train$Title_Mr, train$Survived, correct = F) #2.2e-16
+chisq.test(train$Title_Mrs, train$Survived, correct = F) #2.2e-16
+chisq.test(train$Title_Miss, train$Survived, correct = F) #2.2e-16
+
+# Merging Parch > 2 into 1 single feature and test whether the new feature is sensitive
+for(level in unique(train$Parch)) { #Pclass
+  train[paste("Parch", level, sep = "_")] <- NULL
+}
+train$Parch <- findInterval(train$Parch, c(0, 1, 2, 3))
+for(level in unique(train$Parch)) { #Pclass
+  train[paste("Parch", level, sep = "_")] <- ifelse(train$Parch == level, 1, 0)
+}
+chisq.test(train$Parch_4, train$Survived, correct = F) #0.3467 -> remove this feature
+
+# Merging 8 > SibSp > 1 into 1 single feature and test whether the new feature is sensitive
+for(level in unique(train$SibSp)) { #SibSp
+  train[paste("SibSp", level, sep = "_")] <- NULL
+}
+train$SibSp <- findInterval(train$SibSp, c(0, 1, 2, 8))
+for(level in unique(train$SibSp)) { #SibSp
+  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
+}
+chisq.test(train$SibSp_3, train$Survived, correct = F) #0.1353 -> remove this feature
+
+# Remove features
+train[, c("SibSp", "SibSp_3", "Parch", "Parch_4", "Embarked", "Embarked_Q", "Title", 
+          "Title_Men_Honorable", "Title_Women_Honorable", "Title_Miltary")] <- NULL
+
 ################################################################################
 # Building models
 ################################################################################
@@ -126,7 +197,7 @@ training <- train[inTraining,]
 testing  <- train[-inTraining,]
 
 # Train control
-fitControl <- trainControl(method = "repeatedcv", number = 2, repeats = 5,
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 10,
                            classProbs = T, savePredictions = T)
 
 # Model of NN
@@ -156,6 +227,7 @@ rf_fit <- train(Survived ~ .,
 plot(cart_fit)
 plot(nn_fit)
 plot(rf_fit)
+
 ################################################################################
 # Measure performance using ROC
 ################################################################################
@@ -228,20 +300,24 @@ pred <- predict(model_1, newdata = testing, type = "prob")
 # Use ROC to find the best cut-off point
 dt <- data.frame(X1 = pred$X1, obs = testing$Survived)
 rocobj <- roc(obs ~ X1, dt, ret = c("tp", "fp"))
-plot(rocobj, print.thres="best", col = "blue", print.auc=TRUE) #0.306
+plot(rocobj, print.thres="best", col = "blue", print.auc=TRUE) #0.494
 
 # Testing
-testing_survived <- ifelse(pred$X1 > 0.306, "X1", "X0")
+testing_survived <- ifelse(pred$X1 > 0.494, "X1", "X0")
 error <- mean(testing_survived != testing$Survived)
 print(paste("Accuracy ", 1 - error))
+
 ################################################################################
 # Fit model to an entire train data
 ################################################################################
+# Train control
+fitControl_2 <- trainControl(method = "repeatedcv", number = 10, repeats = 10,
+                           classProbs = T, savePredictions = T)
 model_2 <- train(Survived ~ ., 
                      data = train,
                      method = "parRF",
                      tuneGrid = grid_1,
-                     trControl = fit_control_1)
+                     trControl = fitControl_2)
 
 ################################################################################
 # Predict
