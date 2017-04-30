@@ -2,7 +2,7 @@
 # survivors of Titanic accident by using 3 learning algorithms Neural Networks 
 # (NN), CART, Random Forest (RF)
 # Algorithms: NN, CART, RF
-# Evaluation method: Accuracy, ROC, Statistical tests (Wilcoxon's signed-rank)
+# Evaluation method: Accuracy, ROC, Statistical tests (Wilcoxon's signed-rank)..
 ################################################################################
 # Load libraries
 ################################################################################
