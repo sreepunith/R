@@ -11,7 +11,9 @@ library(mice) #missing
 library(caret)
 library(corrplot) #corrplot
 library(pROC)
-
+library(moments) #skewness, kurtosis
+library(MASS) #boxcox
+library(rcompanion) #plotNormalHistogram
 set.seed(123)
 ################################################################################
 # Load dataset
@@ -31,7 +33,7 @@ combined_dt <- rbind(train, test)
 
 # Identify missing values
 # Fare == 0 doesnt make sense, thus should be missing values
-combined_dt$Fare[which(train$Fare == 0)] <- NA
+combined_dt$Fare[which(combined_dt$Fare == 0)] <- NA
 
 # More than 70% of Cabin is missing, thus we have to remove
 combined_dt$Cabin <- NULL
@@ -98,131 +100,125 @@ combined_dt$Title[which(combined_dt$Title == "Mlle")] <- "Miss"
 combined_dt$Title <- as.factor(combined_dt$Title) 
 summary(combined_dt$Title)
 
+# Create dummy variables for feature selection
+# for(level in unique(combined_dt$SibSp)) { #SibSp
+#   combined_dt[paste("SibSp", level, sep = "_")] <- ifelse(combined_dt$SibSp == level, 1, 0)
+# }
+# 
+# for(level in unique(combined_dt$Parch)) { #Parch
+#   combined_dt[paste("Parch", level, sep = "_")] <- ifelse(combined_dt$Parch == level, 1, 0)
+# }
+# 
+# for(level in unique(combined_dt$Embarked)) { #Embarked
+#   combined_dt[paste("Embarked", level, sep = "_")] <- ifelse(combined_dt$Embarked == level, 1, 0)
+# }
+# 
+# for(level in unique(combined_dt$Title)) { #Title
+#   combined_dt[paste("Title", level, sep = "_")] <- ifelse(combined_dt$Title == level, 1, 0)
+# }
+# 
+# for(level in unique(combined_dt$Pclass)) { #Pclass
+#   combined_dt[paste("Pclass", level, sep = "_")] <- ifelse(combined_dt$Pclass == level, 1, 0)
+# }
+# 
+# cnames <- colnames(combined_dt[,9:ncol(combined_dt)]) 
+# combined_dt[,9:ncol(combined_dt)] <- lapply(cnames, #change to factor
+#                                             function(x) as.factor(as.character(combined_dt[,x])))
+# combined_dt$SibSp <- NULL
+# combined_dt$Parch <- NULL
+# combined_dt$Embarked <- NULL
+# combined_dt$Title <- NULL
+# combined_dt$Pclass <- NULL
+# summary(combined_dt)
+
 # Scale and center
-combined_dt$Fare <- scale(combined_dt$Fare, scale = T, center = T)
-combined_dt$Age <- scale(combined_dt$Age, scale = T, center = T)
+# combined_dt$Fare <- scale(combined_dt$Fare, scale = T, center = T)
+# combined_dt$Age <- scale(combined_dt$Age, scale = T, center = T)
+
+# Measure skewness and kurtosis
+skewness(combined_dt$Age)
+skewness(combined_dt$Fare)
+kurtosis(combined_dt$Age)
+kurtosis(combined_dt$Fare)
+plotNormalHistogram(combined_dt$Fare)
+plotNormalHistogram(combined_dt$Age)
+
+bc <- BoxCoxTrans(combined_dt$Fare)
+combined_dt$Fare <- ((combined_dt$Fare ^ bc$lambda) - 1)/bc$lambda #boxcox transform with lambda = -0.5
+plotNormalHistogram(combined_dt$Fare) #http://rcompanion.org/handbook/I_12.html
 
 # After preprocessing both, separate the data back to train and test
+combined_dt$Pclass <- as.factor(combined_dt$Pclass)
+combined_dt$SibSp <- as.factor(combined_dt$SibSp)
+combined_dt$Parch <- as.factor(combined_dt$Parch)
+summary(combined_dt)
+
 train <- combined_dt[1:nrow(train),]
 train["Survived"] <- train_raw$Survived #add reponse variable back after imputation
 train$Survived <- as.factor(train$Survived)
-
 test <- combined_dt[(nrow(train)+1):nrow(combined_dt), ]
 
 # Survived
 train$Survived <- factor(train$Survived, labels = make.names(unique(train$Survived)))
-# Create dummy variables for correlation testing
-for(level in unique(train$SibSp)) { #SibSp
-  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
-}
 
-for(level in unique(train$Parch)) { #Parch
-  train[paste("Parch", level, sep = "_")] <- ifelse(train$Parch == level, 1, 0)
-}
+# Feature selection
+in_feature_selection <- createDataPartition(train$Survived, p = .80, list = FALSE)
+building <- train[in_feature_selection,]
+feature_selection  <- train[-in_feature_selection,]
 
-for(level in unique(train$Embarked)) { #Embarked
-  train[paste("Embarked", level, sep = "_")] <- ifelse(train$Embarked == level, 1, 0)
-}
-
-for(level in unique(train$Title)) { #Embarked
-  train[paste("Title", level, sep = "_")] <- ifelse(train$Title == level, 1, 0)
-}
-
-# Fare
-train$Fare_factor <- as.factor(findInterval(train$Fare, c(32)))
-
-for(level in unique(train$Fare_factor)){
-  train[paste("Fare_factor", level, sep = "_")] <- ifelse(train$Fare_factor == level, 1, 0)
-}
-
-# Correlation testing
-chisq.test(train$Parch_0, train$Survived, correct = F) #1.082e-05
-chisq.test(train$Parch_1, train$Survived, correct = F) #6.2e-05
-chisq.test(train$Parch_2, train$Survived, correct = F) #0.02514
-chisq.test(train$Parch_3, train$Survived, correct = F) #0.3189
-chisq.test(train$Parch_4, train$Survived, correct = F) #0.1136
-chisq.test(train$Parch_5, train$Survived, correct = F) #0.3966
-chisq.test(train$Parch_6, train$Survived, correct = F) #0.4297
-
-chisq.test(train$SibSp_0, train$Survived, correct = F) #0.000543
-chisq.test(train$SibSp_1, train$Survived, correct = F) #2.388e-07
-chisq.test(train$SibSp_2, train$Survived, correct = F) #0.3738
-chisq.test(train$SibSp_3, train$Survived, correct = F) #0.2666
-chisq.test(train$SibSp_4, train$Survived, correct = F) #0.05562
-chisq.test(train$SibSp_5, train$Survived, correct = F) #0.07675
-chisq.test(train$SibSp_8, train$Survived, correct = F) #0.03604
-
-chisq.test(train$Embarked_S, train$Survived, correct = F) #7.896e-06
-chisq.test(train$Embarked_C, train$Survived, correct = F) #5.116e-07
-chisq.test(train$Embarked_Q, train$Survived, correct = F) #0.9132
-
-chisq.test(train$Title_Master, train$Survived, correct = F) #0.01097
-chisq.test(train$Title_Men_Honorable, train$Survived, correct = F) #0.2666
-chisq.test(train$Title_Women_Honorable, train$Survived, correct = F) #0.07284
-chisq.test(train$Title_Miltary, train$Survived, correct = F) #0.9406
-chisq.test(train$Title_Mr, train$Survived, correct = F) #2.2e-16
-chisq.test(train$Title_Mrs, train$Survived, correct = F) #2.2e-16
-chisq.test(train$Title_Miss, train$Survived, correct = F) #2.2e-16
-
-# Merging Parch > 2 into 1 single feature and test whether the new feature is sensitive
-for(level in unique(train$Parch)) { #Pclass
-  train[paste("Parch", level, sep = "_")] <- NULL
-}
-train$Parch <- findInterval(train$Parch, c(0, 1, 2, 3))
-for(level in unique(train$Parch)) { #Pclass
-  train[paste("Parch", level, sep = "_")] <- ifelse(train$Parch == level, 1, 0)
-}
-chisq.test(train$Parch_4, train$Survived, correct = F) #0.3467 -> remove this feature
-
-# Merging 8 > SibSp > 1 into 1 single feature and test whether the new feature is sensitive
-for(level in unique(train$SibSp)) { #SibSp
-  train[paste("SibSp", level, sep = "_")] <- NULL
-}
-train$SibSp <- findInterval(train$SibSp, c(0, 1, 2, 8))
-for(level in unique(train$SibSp)) { #SibSp
-  train[paste("SibSp", level, sep = "_")] <- ifelse(train$SibSp == level, 1, 0)
-}
-chisq.test(train$SibSp_3, train$Survived, correct = F) #0.1353 -> remove this feature
-
-# Remove features
-train[, c("SibSp", "SibSp_3", "Parch", "Parch_4", "Embarked", "Embarked_Q", "Title", 
-          "Title_Men_Honorable", "Title_Women_Honorable", "Title_Miltary")] <- NULL
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 100,
+                           classProbs = T, savePredictions = T)
+rf_grid <-  expand.grid(mtry = seq(1, 8, 1))
+rf_fs <- train(Survived ~ .,
+                data = feature_selection, 
+                method = "RRFglobal",
+                trControl = fitControl,
+                tuneLength = 10)
+importance <- varImp(rf_fs, scale=FALSE) #feature ranking
+importance
+plot(importance) #plot ranking of features
 
 ################################################################################
 # Building models
 ################################################################################
 # Split data
-inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
-training <- train[inTraining,]
-testing  <- train[-inTraining,]
+in_training <- createDataPartition(building$Survived, p = .75, list = FALSE)
+training <- train[in_training,]
+testing  <- train[-in_training,]
 
 # Train control
-fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 10,
+fit_control <- trainControl(method = "repeatedcv", number = 10, repeats = 100,
                            classProbs = T, savePredictions = T)
 
 # Model of NN
-nn_grid <-  expand.grid(size = c(4, 5, 6, 7, 8, 9, 10))
-nn_fit <- train(Survived ~ ., 
+nn_grid <-  expand.grid(size = c(4, 14, 1))
+nn_fit <- train(Survived ~ Title_Mr + Sex + Fare + Age + Title_Mrs + 
+                  Title_Miss + Pclass_3 + SibSp_0 + Title_Master + Pclass_1 +
+                  Parch_0 + SibSp_1 + Pclass_2 + Embarked_S + SibSp_2 + SibSp_3 + Embarked_Q, 
                 data = training,
                 method = "mlp",
                 tuneGrid = nn_grid,
-                trControl = fitControl)
+                trControl = fit_control, tuneLength = 10)
 
 # Model of CART
 cart_grid <-  expand.grid(cp = seq(1,10, 2)*0.1)
-cart_fit <- train(Survived ~ .,
+cart_fit <- train(Survived ~ Title_Mr + Sex + Fare + Age + Title_Mrs + 
+                    Title_Miss + Pclass_3 + SibSp_0 + Title_Master + Pclass_1 +
+                    Parch_0 + SibSp_1 + Pclass_2 + Embarked_S + SibSp_2 + SibSp_3 + Embarked_Q,
                   data = training,
                   method = "rpart",
                   tuneGrid = cart_grid,
-                  trControl = fitControl)
+                  trControl = fit_control, tuneLength = 10)
 
 # Model
-rf_grid <-  expand.grid(mtry = seq(1, 7, 1))
-rf_fit <- train(Survived ~ .,
+rf_grid <-  expand.grid(mtry = seq(1, 20, 2))
+rf_fit <- train(Survived ~ Title_Mr + Sex + Fare + Age + Title_Mrs + 
+                  Title_Miss + Pclass_3 + SibSp_0 + Title_Master + Pclass_1 +
+                  Parch_0 + SibSp_1 + Pclass_2 + Embarked_S + SibSp_2 + SibSp_3 + Embarked_Q,
                data = training, 
                method = "parRF",
-               trControl = fitControl,
-               tuneGrid = rf_grid)
+               trControl = fit_control,
+               tuneGrid = rf_grid, tuneLength = 10)
 
 plot(cart_fit)
 plot(nn_fit)
@@ -280,51 +276,50 @@ anova_result <- aov(accuracy ~ classifier, data = dt)
 summary(anova_result)
 
 ################################################################################
-# Fit model to an entire training
+# Testing on the holdout set
 ################################################################################
-# Train control
-fit_control_1 <- trainControl(method = "none",
-                           classProbs = T, savePredictions = T)
-
-# Model of NN
-grid_1 <-  expand.grid(mtry = best_mtry)
-model_1 <- train(Survived ~ ., 
-                data = training,
-                method = "parRF",
-                tuneGrid = grid_1,
-                trControl = fit_control_1)
-
 # Generate probabilities for test set
-pred <- predict(model_1, newdata = testing, type = "prob")
+nn_pred <- predict(nn_fit, newdata = testing, type = "prob")
+cart_pred <- predict(cart_fit, newdata = testing, type = "prob")
+rf_pred <- predict(rf_fit, newdata = testing, type = "prob")
 
-# Use ROC to find the best cut-off point
-dt <- data.frame(X1 = pred$X1, obs = testing$Survived)
-rocobj <- roc(obs ~ X1, dt, ret = c("tp", "fp"))
-plot(rocobj, print.thres="best", col = "blue", print.auc=TRUE) #0.494
+# ROC
+rf_holdout_result <- data.frame(X1 = rf_pred$X1, obs = testing$Survived)
+rocobj <- roc(obs ~ X1, rf_holdout_result, ret = c("tp", "fp"))
+rets <- c("threshold", "specificity", "sensitivity", "accuracy", "tn", "tp", "fn", "fp", "npv", 
+          "ppv", "1-specificity", "1-sensitivity", "1-accuracy", "1-npv", "1-ppv")
+ci.coords(rocobj, x="best", input = "threshold", ret=rets)
+plot(rocobj, col = "blue", print.auc = TRUE)
+
+
+cart_holdout_result <- data.frame(X1 = cart_pred$X1, obs = testing$Survived)
+rocobj <- roc(obs ~ X1, cart_holdout_result, ret = c("tp", "fp"))
+rets <- c("threshold", "specificity", "sensitivity", "accuracy", "tn", "tp", "fn", "fp", "npv", 
+          "ppv", "1-specificity", "1-sensitivity", "1-accuracy", "1-npv", "1-ppv")
+ci.coords(rocobj, x="best", input = "threshold", ret=rets)
+plot(rocobj, print.thres="best", col = "red", add = T)
+
+nn_holdout_result <- data.frame(X1 = nn_pred$X1, obs = testing$Survived)
+rocobj <- roc(obs ~ X1, nn_holdout_result, ret = c("tp", "fp"))
+rets <- c("threshold", "specificity", "sensitivity", "accuracy", "tn", "tp", "fn", "fp", "npv", 
+          "ppv", "1-specificity", "1-sensitivity", "1-accuracy", "1-npv", "1-ppv")
+ci.coords(rocobj, x="best", input = "threshold", ret=rets)
+plot(rocobj, print.thres="best", col = "green", add = T)
+
+legend("bottomright", legend=c("NN", "CART", "RF"),
+       col=c("green", "red", "blue"), lwd=2)
 
 # Testing
-testing_survived <- ifelse(pred$X1 > 0.494, "X1", "X0")
+testing_survived <- ifelse(rf_pred$X1 > 0.5320, "X1", "X0")
 error <- mean(testing_survived != testing$Survived)
 print(paste("Accuracy ", 1 - error))
-
-################################################################################
-# Fit model to an entire train data
-################################################################################
-# Train control
-fitControl_2 <- trainControl(method = "repeatedcv", number = 10, repeats = 10,
-                           classProbs = T, savePredictions = T)
-model_2 <- train(Survived ~ ., 
-                     data = train,
-                     method = "parRF",
-                     tuneGrid = grid_1,
-                     trControl = fitControl_2)
 
 ################################################################################
 # Predict
 ################################################################################
 # Generate probabilities for test set
-test_prediction <- predict(model_2, newdata = test, type = "prob")
-survived <- ifelse(test_prediction$X1 > 0.306, "1", "0")
+test_prediction <- predict(rf_fit, newdata = test, type = "prob")
+survived <- ifelse(test_prediction$X1 > 0.5320, "1", "0")
 survived <- as.factor(survived)
 
 # Attach prediction results to test set
