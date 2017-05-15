@@ -1,3 +1,16 @@
+# This experiment aims at demonstrating how we can simulate data from a mixture
+# Gaussian distribution for bechmarking purposes, such as measuring the performance
+# of error estimator methods like cross-validation, bootstrap empirically.
+# In this experiment, we first sample 10 means for each class 0, 1 from two Gaussian
+# distributions. From each set of 10 means, we perform another sampling in which
+# we randomly draw 100 observations by (1) randomly selecting 1 in 10 above 
+# means, and (2) generate a bivariate Gaussian distribution with the selected mean 
+# and the covariance matrix I/5 (2x2).
+#
+# After generating the data, we perform a grid search to plot the Bayes decision boundary
+# After that, we generate 100 000 observations to compute the Bayes error rate of
+# the optimal Bayesian classifier. The Bayes error rate is optimal, thus, the error 
+# rate of another classifiers are just higher or equal this error rate.
 ################################################################################
 # Load library
 ################################################################################
@@ -27,9 +40,9 @@ generate_obs <- function(class_means, class_name, size, sigma) {
   return (obs)
 }
 
-data_sample_0 <- generate_obs(mu_sample_0, class_name = 0, size = 500, #class 0
+data_sample_0 <- generate_obs(mu_sample_0, class_name = 0, size = 100, #class 0
                               sigma = sigma/5)
-data_sample_1 <- generate_obs(mu_sample_1, class_name = 1, size = 500, #class 1
+data_sample_1 <- generate_obs(mu_sample_1, class_name = 1, size = 100, #class 1
                               sigma = sigma/5)
 dt <- rbind(data_sample_0, data_sample_1) 
 dt$class <- as.factor(as.character(dt$class))
@@ -115,4 +128,3 @@ pred <- ifelse(dt$prob >= 0, 0, 1) # predict by following bayesian decision rule
 dt$pred <- pred # add predicted class to df
 bayes_err <- mean(dt$pred != dt$class)
 paste("Bayes error rate: ", bayes_err)
-
