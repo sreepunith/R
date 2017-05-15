@@ -67,15 +67,52 @@ for (i in 1:nrow(grid)) {
 }
 
 grid <- as.data.frame(grid) #convert to df to store results
-grid$prob <- err_vect # P(x_i|y = 1) - P(x_i|y = 0)
-pred <- ifelse(grid$prob >= 0, 1, 0) # predict by following bayesian decision rule
+grid$prob <- err_vect # P(x_i|y = 0) - P(x_i|y = 1)
+pred <- ifelse(grid$prob >= 0, 0, 1) # predict by following bayesian decision rule
 grid$pred <- pred # add predicted class to df
 
 ggplot() +
   geom_point(data = dt, mapping = aes(x = x1, y = x2, colour = class, shape = class), size = 1.2) +
-  geom_contour(data = grid, mapping = aes(x = Var1, y = Var2, z = pred), size = 0.6) +
-  geom_contour(binwidth = 0.0001)
+  geom_contour(data = grid, mapping = aes(x = Var1, y = Var2, z = pred), size = 0.6)
 
 ################################################################################
 # Compute the Bayes error rate
 ################################################################################
+# Generate data
+dt_0 <- generate_obs(mu_sample_0, class_name = 0, size = 50000, #class 0
+                     sigma = sigma/5)
+dt_1 <- generate_obs(mu_sample_1, class_name = 1, size = 50000, #class 0
+                     sigma = sigma/5)
+dt <- rbind(dt_0, dt_1)
+head(dt)
+summary(dt)
+
+# Function to compute P(x_i|y = 0) - P(x_i|y = 1)
+compute_prob <- function(dt, mean_0, mean_1, sigma_1, sigma_2){
+  dt <- as.matrix(dt)
+  prob <- vector()
+  for (i in 1:nrow(dt)) {
+    x <- dt[i, 1:2] #get observation
+    x_prob_0 <- 0 #P(x_i|y = 0)
+    x_prob_1 <- 0 #P(x_i|y = 1)
+    
+    for (j in 1:10) { # class 0
+      m_0 <- mu_sample_0[j, ]
+      x_prob_0 <- x_prob_0 + exp(-0.5 * t(x - m_0) %*% solve(diag(2)/5) %*% (x - m_0))
+    }
+    for (j in 1:10) { #class 1
+      m_1 <- mu_sample_1[j, ]
+      x_prob_1 <- x_prob_1 + exp(-0.5 * t(x - m_1) %*% solve(diag(2)/5) %*% (x - m_1))
+    }
+    x_prob <- x_prob_0 - x_prob_1 #P(x_i|y = 0) - #P(x_i|y = 1)
+    prob <- c(prob, x_prob)
+  }
+  return (prob)
+}
+
+dt$prob <- compute_prob(dt, mu_sample_0, mu_sample_1)
+pred <- ifelse(dt$prob >= 0, 0, 1) # predict by following bayesian decision rule
+dt$pred <- pred # add predicted class to df
+bayes_err <- mean(dt$pred != dt$class)
+paste("Bayes error rate: ", bayes_err)
+
